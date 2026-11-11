@@ -1,0 +1,187 @@
+# AdaptiveLearn AI — Database Schema Specification
+
+The database is built on Supabase PostgreSQL with 20 relational tables, foreign key constraints, checks, indexes, and comprehensive Row Level Security (RLS).
+
+## Schema Tables
+
+### 1. Identity & Course Management
+- `profiles`:
+  - `id` (UUID, PK -> auth.users.id)
+  - `email` (TEXT, NOT NULL)
+  - `full_name` (TEXT, NOT NULL)
+  - `role` (TEXT, CHECK IN ('faculty', 'student'))
+  - `avatar_url` (TEXT)
+  - `institution` (TEXT)
+  - `created_at`, `updated_at` (TIMESTAMPTZ)
+- `courses`:
+  - `id` (UUID, PK)
+  - `instructor_id` (UUID, FK -> profiles.id)
+  - `code` (TEXT, NOT NULL)
+  - `title` (TEXT, NOT NULL)
+  - `description` (TEXT)
+  - `enrollment_code` (TEXT, UNIQUE)
+  - `term` (TEXT)
+  - `is_active` (BOOLEAN)
+- `enrollments`:
+  - `id` (UUID, PK)
+  - `course_id` (UUID, FK -> courses.id)
+  - `student_id` (UUID, FK -> profiles.id)
+  - `status` (TEXT, CHECK IN ('enrolled', 'dropped'))
+  - `enrolled_at` (TIMESTAMPTZ)
+  - `UNIQUE(course_id, student_id)`
+- `modules`:
+  - `id` (UUID, PK)
+  - `course_id` (UUID, FK -> courses.id)
+  - `title`, `description` (TEXT)
+  - `order_index` (INT)
+- `course_outcomes`:
+  - `id` (UUID, PK)
+  - `course_id` (UUID, FK -> courses.id)
+  - `code` (TEXT, e.g. 'CO1')
+  - `description` (TEXT)
+
+### 2. Learning Materials (Grounding Source)
+- `learning_materials`:
+  - `id` (UUID, PK)
+  - `course_id` (UUID, FK -> courses.id)
+  - `module_id` (UUID, FK -> modules.id)
+  - `uploader_id` (UUID, FK -> profiles.id)
+  - `filename`, `storage_path` (TEXT)
+  - `file_type` (TEXT, CHECK IN ('pdf', 'docx', 'pptx'))
+  - `file_size_bytes` (BIGINT)
+  - `extracted_text` (TEXT)
+  - `character_count` (INT)
+  - `processing_status` (TEXT, CHECK IN ('pending', 'processing', 'completed', 'failed'))
+  - `approval_status` (TEXT, CHECK IN ('pending', 'approved', 'rejected'))
+  - `rejection_reason` (TEXT)
+
+### 3. Assessments & Pre-Generated Question Packages
+- `assessments`:
+  - `id` (UUID, PK)
+  - `course_id` (UUID, FK -> courses.id)
+  - `module_id` (UUID, FK -> modules.id)
+  - `title`, `description` (TEXT)
+  - `assessment_type` (TEXT, CHECK IN ('diagnostic', 'module', 'final'))
+  - `status` (TEXT, CHECK IN ('draft', 'pending_approval', 'published', 'archived'))
+  - `time_limit_minutes` (INT)
+  - `max_marks`, `passing_marks` (NUMERIC)
+  - `progressive_hints_enabled` (BOOLEAN)
+  - `version` (INT)
+- `questions`:
+  - `id` (UUID, PK)
+  - `assessment_id` (UUID, FK -> assessments.id)
+  - `order_index` (INT)
+  - `question_text` (TEXT)
+  - `question_type` (TEXT, CHECK IN ('mcq', 'multiple_select', 'true_false', 'numeric', 'fill_in_blank'))
+  - `options` (JSONB)
+  - `max_marks` (NUMERIC)
+  - `primary_trait` (TEXT, CHECK IN Bloom's 6 traits)
+  - `secondary_trait` (TEXT)
+  - `secondary_trait_weight` (NUMERIC)
+  - `difficulty` (TEXT, CHECK IN ('easy', 'medium', 'hard'))
+  - `approval_status` (TEXT, CHECK IN ('draft', 'generated', 'approved', 'rejected'))
+  - `source_reference` (TEXT)
+- `question_answer_keys` *(RLS: STRICT DENY TO STUDENTS)*:
+  - `id` (UUID, PK)
+  - `question_id` (UUID, UNIQUE, FK -> questions.id)
+  - `correct_answer` (TEXT)
+  - `accepted_variations` (TEXT[])
+  - `reference_answer`, `explanation` (TEXT)
+  - `evaluation_method` (TEXT)
+  - `numeric_tolerance` (NUMERIC)
+- `question_rubrics` *(RLS: STRICT DENY TO STUDENTS)*:
+  - `id` (UUID, PK)
+  - `question_id` (UUID, FK -> questions.id)
+  - `criteria_name`, `description` (TEXT)
+  - `max_points`, `weight` (NUMERIC)
+- `question_hints` *(RLS: STRICT DENY TO DIRECT STUDENT QUERIES)*:
+  - `id` (UUID, PK)
+  - `question_id` (UUID, FK -> questions.id)
+  - `hint_number` (INT, CHECK IN (1, 2))
+  - `hint_text` (TEXT)
+  - `penalty_percentage` (NUMERIC)
+  - `UNIQUE(question_id, hint_number)`
+
+### 4. Student Examination & 2-Hint State Machine
+- `attempts`:
+  - `id` (UUID, PK)
+  - `assessment_id` (UUID, FK -> assessments.id)
+  - `student_id` (UUID, FK -> profiles.id)
+  - `attempt_number` (INT)
+  - `status` (TEXT, CHECK IN ('in_progress', 'submitted', 'evaluated'))
+  - `started_at`, `submitted_at` (TIMESTAMPTZ)
+  - `total_score`, `max_score`, `percentage` (NUMERIC)
+- `responses`:
+  - `id` (UUID, PK)
+  - `attempt_id` (UUID, FK -> attempts.id)
+  - `question_id` (UUID, FK -> questions.id)
+  - `response_number` (INT, CHECK IN (1, 2, 3))
+  - `student_answer` (TEXT)
+  - `awarded_marks` (NUMERIC)
+  - `is_correct` (BOOLEAN)
+  - `feedback` (TEXT)
+  - `evaluation_method` (TEXT)
+  - `UNIQUE(attempt_id, question_id, response_number)`
+- `evaluations`:
+  - `id` (UUID, PK)
+  - `response_id` (UUID, UNIQUE, FK -> responses.id)
+  - `score` (NUMERIC)
+  - `evaluator` (TEXT)
+  - `evaluated_at` (TIMESTAMPTZ)
+- `hint_events`:
+  - `id` (UUID, PK)
+  - `attempt_id` (UUID, FK -> attempts.id)
+  - `question_id` (UUID, FK -> questions.id)
+  - `hint_number` (INT, CHECK IN (1, 2))
+  - `unlocked_at` (TIMESTAMPTZ)
+  - `UNIQUE(attempt_id, question_id, hint_number)`
+- `trait_scores`:
+  - `id` (UUID, PK)
+  - `attempt_id` (UUID, FK -> attempts.id)
+  - `student_id` (UUID, FK -> profiles.id)
+  - `course_id` (UUID, FK -> courses.id)
+  - `assessment_id` (UUID, FK -> assessments.id)
+  - `trait` (TEXT, CHECK IN Bloom's 6 traits)
+  - `marks_earned`, `marks_possible`, `score_percentage` (NUMERIC)
+  - `evidence_count` (INT)
+  - `confidence` (TEXT, CHECK IN ('high', 'moderate', 'low'))
+  - `UNIQUE(attempt_id, trait)`
+
+### 5. Personalized Learning & Interventions
+- `interventions`:
+  - `id` (UUID, PK)
+  - `student_id` (UUID, FK -> profiles.id)
+  - `course_id` (UUID, FK -> courses.id)
+  - `diagnostic_attempt_id` (UUID, FK -> attempts.id)
+  - `weak_traits`, `weak_outcomes` (TEXT[])
+  - `status` (TEXT, CHECK IN ('generated', 'pending_approval', 'approved', 'rejected', 'released'))
+  - `faculty_notes` (TEXT)
+  - `approved_by` (UUID, FK -> profiles.id)
+- `intervention_materials`:
+  - `id` (UUID, PK)
+  - `intervention_id` (UUID, FK -> interventions.id)
+  - `title`, `learning_gap_summary`, `explanation_markdown` (TEXT)
+  - `worked_examples`, `analogies` (JSONB)
+  - `revision_checklist`, `recommended_next_steps` (TEXT[])
+- `practice_questions`:
+  - `id` (UUID, PK)
+  - `intervention_id` (UUID, FK -> interventions.id)
+  - `order_index` (INT)
+  - `question_text`, `correct_answer`, `explanation` (TEXT)
+  - `options` (JSONB)
+  - `trait` (TEXT)
+- `practice_attempts`:
+  - `id` (UUID, PK)
+  - `practice_question_id` (UUID, FK -> practice_questions.id)
+  - `student_id` (UUID, FK -> profiles.id)
+  - `student_answer` (TEXT)
+  - `is_correct` (BOOLEAN)
+- `progress_reports`:
+  - `id` (UUID, PK)
+  - `student_id` (UUID, FK -> profiles.id)
+  - `course_id` (UUID, FK -> courses.id)
+  - `baseline_assessment_id`, `final_assessment_id` (UUID, FK -> assessments.id)
+  - `baseline_score`, `final_score`, `score_improvement` (NUMERIC)
+  - `trait_improvements`, `evidence_counts` (JSONB)
+  - `summary_narrative` (TEXT)
+  - `UNIQUE(student_id, course_id, final_assessment_id)`
