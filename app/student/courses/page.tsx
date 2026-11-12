@@ -1,29 +1,38 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Plus, Check, Users, Layers, Award, Sparkles, Download } from 'lucide-react';
+import { BookOpen, Plus, Layers, Eye, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useApp } from '@/components/providers/app-provider';
 
 export default function StudentCoursesPage() {
+  const { getActiveUser, toast } = useApp();
+  const activeStudent = getActiveUser('student');
+
   const [courses, setCourses] = useState<any[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [courseDetails, setCourseDetails] = useState<any>(null);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [enrollCode, setEnrollCode] = useState('');
   const [enrolling, setEnrolling] = useState(false);
+  const [previewMaterial, setPreviewMaterial] = useState<any>(null);
 
   useEffect(() => {
     loadCourses();
-  }, []);
+  }, [activeStudent.id]);
 
   async function loadCourses() {
-    const res = await fetch('/api/courses?userId=00000000-0000-0000-0000-000000000101&role=student');
+    const res = await fetch(`/api/courses?userId=${activeStudent.id}&role=student`);
     const data = await res.json();
-    setCourses(data.courses || []);
-    if (data.courses?.[0]) {
-      loadCourseDetails(data.courses[0].id);
+    const list = data.courses || [];
+    setCourses(list);
+    if (list[0]) {
+      loadCourseDetails(list[0].id);
+    } else {
+      setSelectedCourse(null);
+      setCourseDetails(null);
     }
   }
 
@@ -43,7 +52,7 @@ export default function StudentCoursesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code: enrollCode,
-          student_id: '00000000-0000-0000-0000-000000000101',
+          student_id: activeStudent.id,
         }),
       });
 
@@ -51,13 +60,13 @@ export default function StudentCoursesPage() {
       if (data.success) {
         setShowEnrollModal(false);
         setEnrollCode('');
-        alert(data.message);
+        toast(data.message, 'success');
         await loadCourses();
       } else {
-        alert(data.error);
+        toast(data.error || 'Enrollment failed', 'error');
       }
     } catch (err: any) {
-      alert(err.message);
+      toast(err.message, 'error');
     } finally {
       setEnrolling(false);
     }
@@ -109,7 +118,7 @@ export default function StudentCoursesPage() {
                 <p className="text-xs text-gray-500 mt-1 line-clamp-2">{c.description || 'No description provided.'}</p>
 
                 <div className="mt-5 pt-4 border-t border-gray-50 flex items-center justify-between text-xs text-gray-500 font-medium">
-                  <span>Instructor: Dr. Aris Thorne</span>
+                  <span>Instructor: {c.instructor?.full_name || 'Faculty'}</span>
                   <Badge variant="emerald" className="text-[10px] uppercase font-bold">
                     Active
                   </Badge>
@@ -151,21 +160,52 @@ export default function StudentCoursesPage() {
               </div>
 
               <div className="space-y-3">
-                {courseDetails.materials?.map((mat: any) => (
-                  <div key={mat.id} className="p-3 bg-gray-50 rounded-2xl flex items-center justify-between">
-                    <div>
-                      <h4 className="text-xs font-bold text-gray-900">{mat.filename}</h4>
-                      <p className="text-[10px] text-gray-400">
-                        {(mat.file_size_bytes / 1024).toFixed(1)} KB • Approved by Faculty
-                      </p>
+                {courseDetails.materials?.length === 0 ? (
+                  <p className="text-xs text-gray-400">No approved handouts uploaded yet.</p>
+                ) : (
+                  courseDetails.materials?.map((mat: any) => (
+                    <div
+                      key={mat.id}
+                      onClick={() => setPreviewMaterial(mat)}
+                      className="p-3 bg-gray-50 hover:bg-purple-50/50 rounded-2xl flex items-center justify-between cursor-pointer transition-colors"
+                    >
+                      <div>
+                        <h4 className="text-xs font-bold text-gray-900">{mat.filename}</h4>
+                        <p className="text-[10px] text-gray-400">
+                          {(mat.file_size_bytes / 1024).toFixed(1)} KB • Approved by Faculty
+                        </p>
+                      </div>
+                      <Button size="sm" variant="outline" className="h-7 rounded-xl text-[10px] font-bold bg-white">
+                        <Eye className="w-3 h-3 mr-1" /> Read
+                      </Button>
                     </div>
-                    <Badge variant="emerald" className="text-[10px] font-bold">
-                      Available
-                    </Badge>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Handout Preview Modal */}
+      {previewMaterial && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">{previewMaterial.filename}</h3>
+                <p className="text-[11px] text-gray-400">{previewMaterial.character_count} characters</p>
+              </div>
+              <button
+                onClick={() => setPreviewMaterial(null)}
+                className="p-1.5 rounded-xl hover:bg-gray-100 text-gray-500"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-4 bg-[#F4F5FA] rounded-2xl text-xs text-gray-800 whitespace-pre-wrap leading-relaxed font-mono">
+              {previewMaterial.extracted_text || 'No preview text available.'}
+            </div>
           </div>
         </div>
       )}
@@ -221,3 +261,4 @@ export default function StudentCoursesPage() {
     </div>
   );
 }
+

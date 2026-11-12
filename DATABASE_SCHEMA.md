@@ -185,3 +185,4 @@ The database is built on Supabase PostgreSQL with 20 relational tables, foreign 
   - `trait_improvements`, `evidence_counts` (JSONB)
   - `summary_narrative` (TEXT)
   - `UNIQUE(student_id, course_id, final_assessment_id)`
+

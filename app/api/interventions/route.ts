@@ -10,3 +10,4 @@ export async function GET(req: NextRequest) {
   const interventions = db.getInterventions({ studentId, courseId, onlyReleased });
   return NextResponse.json({ success: true, interventions });
 }
+

@@ -3,20 +3,25 @@
 import React, { useState, useEffect } from 'react';
 import {
   FileText,
-  Upload,
   CheckCircle2,
   XCircle,
   Trash2,
   Eye,
-  Sparkles,
   FileUp,
-  AlertCircle,
+  Download,
+  CopyCheck,
+  Sparkles,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useApp } from '@/components/providers/app-provider';
+import { CONTENT_TEMPLATES, ContentTemplate } from '@/lib/templates/content-templates';
 
 export default function MaterialsPage() {
+  const { getActiveUser, toast, confirmAction } = useApp();
+  const activeFaculty = getActiveUser('faculty');
+
   const [courses, setCourses] = useState<any[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [materials, setMaterials] = useState<any[]>([]);
@@ -31,16 +36,19 @@ export default function MaterialsPage() {
 
   useEffect(() => {
     async function loadCourses() {
-      const res = await fetch('/api/courses');
+      const res = await fetch(`/api/courses?userId=${activeFaculty.id}&role=faculty`);
       const data = await res.json();
       setCourses(data.courses || []);
       if (data.courses?.[0]) {
         setSelectedCourseId(data.courses[0].id);
         loadMaterials(data.courses[0].id);
+      } else {
+        setSelectedCourseId('');
+        setMaterials([]);
       }
     }
     loadCourses();
-  }, []);
+  }, [activeFaculty.id]);
 
   async function loadMaterials(courseId: string) {
     setLoading(true);
@@ -65,14 +73,15 @@ export default function MaterialsPage() {
     setUploading(true);
     try {
       const formData = new FormData();
+      formData.append('uploader_id', activeFaculty.id);
       if (selectedFile) {
         formData.append('file', selectedFile);
         formData.append('filename', selectedFile.name);
       } else if (rawText) {
         formData.append('textContent', rawText);
-        formData.append('filename', filename || 'Lecture_Notes.txt');
+        formData.append('filename', filename || 'Lecture_Notes.md');
       } else {
-        alert('Please select a file or enter text content.');
+        toast('Please select a file or enter text content.', 'warning');
         setUploading(false);
         return;
       }
@@ -87,31 +96,58 @@ export default function MaterialsPage() {
         setRawText('');
         setFilename('');
         setSelectedFile(null);
+        toast('Material uploaded and extracted for AI grounding!', 'success');
         await loadMaterials(selectedCourseId);
       } else {
-        alert(`Upload error: ${data.error}`);
+        toast(`Upload error: ${data.error}`, 'error');
       }
     } catch (err: any) {
-      alert(`Error uploading: ${err.message}`);
+      toast(`Error uploading: ${err.message}`, 'error');
     } finally {
       setUploading(false);
     }
   };
 
+  const handleLoadTemplate = (tpl: ContentTemplate) => {
+    const course = courses.find((c) => c.id === selectedCourseId);
+    const code = course?.code || 'COURSE';
+    setSelectedFile(null);
+    setFilename(`${code}_${tpl.filename}`);
+    setRawText(tpl.content);
+    toast(`Loaded "${tpl.title}" into editor. Customize and click Upload.`, 'info');
+  };
+
   const updateStatus = async (materialId: string, status: 'approved' | 'rejected') => {
-    await fetch(`/api/materials/${materialId}`, {
+    const res = await fetch(`/api/materials/${materialId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ approval_status: status }),
     });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      toast(data.error || 'Failed to update material status', 'error');
+      return;
+    }
+    toast(`Material marked as ${status}.`, 'success');
     await loadMaterials(selectedCourseId);
   };
 
   const deleteMaterial = async (materialId: string) => {
-    if (!confirm('Are you sure you want to delete this material?')) return;
-    await fetch(`/api/materials/${materialId}`, {
+    const ok = await confirmAction({
+      title: 'Delete Material',
+      message: 'Are you sure you want to delete this learning material? AI will no longer ground questions in it.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    const res = await fetch(`/api/materials/${materialId}`, {
       method: 'DELETE',
     });
+    if (!res.ok) {
+      toast('Failed to delete material', 'error');
+      return;
+    }
+    toast('Material deleted.', 'info');
     await loadMaterials(selectedCourseId);
   };
 
@@ -158,11 +194,11 @@ export default function MaterialsPage() {
                 {/* File Dropzone */}
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Select File (PDF, DOCX, TXT)
+                    Select File (PDF, DOCX, TXT, MD)
                   </label>
                   <input
                     type="file"
-                    accept=".pdf,.docx,.pptx,.txt"
+                    accept=".pdf,.docx,.pptx,.txt,.md"
                     onChange={(e) => {
                       if (e.target.files?.[0]) {
                         setSelectedFile(e.target.files[0]);
@@ -214,6 +250,50 @@ export default function MaterialsPage() {
                   {uploading ? 'Processing & Extracting...' : 'Upload & Extract Text'}
                 </Button>
               </form>
+            </CardContent>
+          </Card>
+
+          {/* Standardized Content Templates */}
+          <Card className="rounded-3xl border-none shadow-sm bg-white overflow-hidden">
+            <CardHeader className="border-b border-gray-50 pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-bold text-gray-900">Standardized Upload Templates</CardTitle>
+                <Badge variant="secondary" className="text-[10px]">Standard Format</Badge>
+              </div>
+              <p className="text-[11px] text-gray-500 mt-1">
+                Download or auto-fill a standard template to maintain consistent AI grounding quality.
+              </p>
+            </CardHeader>
+            <CardContent className="pt-3 space-y-2.5">
+              {CONTENT_TEMPLATES.map((tpl) => (
+                <div
+                  key={tpl.id}
+                  className="p-3 rounded-2xl bg-[#F4F5FA] flex items-center justify-between gap-2"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-gray-900">{tpl.title}</p>
+                    <p className="text-[10px] text-gray-500 line-clamp-1">{tpl.description}</p>
+                  </div>
+                  <div className="flex items-center space-x-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleLoadTemplate(tpl)}
+                      className="px-2.5 py-1.5 rounded-xl bg-white border border-purple-200 text-[#3E2D68] text-[10px] font-bold hover:bg-purple-50 flex items-center space-x-1"
+                    >
+                      <CopyCheck className="w-3 h-3" />
+                      <span>Use</span>
+                    </button>
+                    <a
+                      href={tpl.downloadPath}
+                      download={tpl.filename}
+                      className="p-1.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-100"
+                      title={`Download ${tpl.filename}`}
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                </div>
+              ))}
             </CardContent>
           </Card>
 
@@ -350,3 +430,4 @@ export default function MaterialsPage() {
     </div>
   );
 }
+

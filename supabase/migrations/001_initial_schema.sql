@@ -310,3 +310,4 @@ CREATE INDEX IF NOT EXISTS idx_trait_scores_student ON public.trait_scores(stude
 CREATE INDEX IF NOT EXISTS idx_trait_scores_course ON public.trait_scores(course_id);
 CREATE INDEX IF NOT EXISTS idx_interventions_student ON public.interventions(student_id);
 CREATE INDEX IF NOT EXISTS idx_interventions_course ON public.interventions(course_id);
+

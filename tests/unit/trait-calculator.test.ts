@@ -90,3 +90,4 @@ describe('Academic Trait Calculator', () => {
     expect(improvements.analysis).toBe(40);
   });
 });
+

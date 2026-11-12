@@ -25,6 +25,10 @@ yarn-error.log*
 # local env files
 .env*.local
 
+# persistent local db
+.data/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+

@@ -95,7 +95,7 @@ Generate a complete JSON object with the following structure:
   }
 
   // Grounded Deterministic Generator Fallback
-  return generateGroundedFallbackPackages(courseTitle, groundingText, targetTraits);
+  return generateGroundedFallbackPackages(courseTitle, groundingText, targetTraits).slice(0, questionCount);
 }
 
 /**

@@ -15,8 +15,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import confetti from 'canvas-confetti';
+import { useApp } from '@/components/providers/app-provider';
 
 export default function StudentPracticeCenter() {
+  const { getActiveUser, toast } = useApp();
+  const activeStudent = getActiveUser('student');
+
   const [interventions, setInterventions] = useState<any[]>([]);
   const [practiceQuestions, setPracticeQuestions] = useState<any[]>([]);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
@@ -25,18 +29,31 @@ export default function StudentPracticeCenter() {
 
   useEffect(() => {
     async function loadData() {
-      const res = await fetch(
-        '/api/interventions?studentId=00000000-0000-0000-0000-000000000101&onlyReleased=true'
-      );
-      const data = await res.json();
-      setInterventions(data.interventions || []);
+      const [iRes, aRes] = await Promise.all([
+        fetch(`/api/interventions?studentId=${activeStudent.id}&onlyReleased=true`),
+        fetch(`/api/practice/attempts?studentId=${activeStudent.id}`),
+      ]);
+      const [iData, aData] = await Promise.all([iRes.json(), aRes.json()]);
+      const list = iData.interventions || [];
+      setInterventions(list);
 
-      if (data.interventions?.[0]?.practice_questions) {
-        setPracticeQuestions(data.interventions[0].practice_questions);
-      }
+      const allQuestions = list.flatMap((inv: any) => inv.practice_questions || []);
+      setPracticeQuestions(allQuestions);
+
+      const priorAnswers: Record<string, string> = {};
+      const priorResults: Record<string, any> = {};
+      (aData.attempts || []).forEach((att: any) => {
+        priorAnswers[att.practice_question_id] = att.student_answer;
+        priorResults[att.practice_question_id] = {
+          is_correct: att.is_correct,
+          explanation: att.feedback?.replace(/^(Correct! |Incorrect\. )/, '') || '',
+        };
+      });
+      setSelectedAnswers(priorAnswers);
+      setResults(priorResults);
     }
     loadData();
-  }, []);
+  }, [activeStudent.id]);
 
   const handleSelect = (qId: string, option: string) => {
     if (results[qId]) return; // locked after evaluation
@@ -49,7 +66,7 @@ export default function StudentPracticeCenter() {
   const handleSubmitPractice = async (qId: string) => {
     const answer = selectedAnswers[qId];
     if (!answer) {
-      alert('Please select an answer first.');
+      toast('Please select an answer first.', 'warning');
       return;
     }
 
@@ -60,7 +77,7 @@ export default function StudentPracticeCenter() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           practice_question_id: qId,
-          student_id: '00000000-0000-0000-0000-000000000101',
+          student_id: activeStudent.id,
           student_answer: answer,
         }),
       });
@@ -75,9 +92,11 @@ export default function StudentPracticeCenter() {
         if (data.result.is_correct) {
           confetti({ particleCount: 60, spread: 60, origin: { y: 0.7 } });
         }
+      } else {
+        toast(data.error || 'Submission failed', 'error');
       }
     } catch (err: any) {
-      alert(`Error: ${err.message}`);
+      toast(`Error: ${err.message}`, 'error');
     } finally {
       setSubmittingId(null);
     }
@@ -197,3 +216,4 @@ export default function StudentPracticeCenter() {
     </div>
   );
 }
+

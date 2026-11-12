@@ -93,3 +93,4 @@ The platform includes a preloaded demonstration dataset with institutional data,
 8. [`render.yaml`](./render.yaml) — Infrastructure-as-Code specification for Render.
 9. [`.env.example`](./.env.example) — Complete environment variable template.
 10. [`supabase/migrations/`](./supabase/migrations/) — Version-controlled SQL migrations (`001_initial_schema.sql`, `002_rls_policies.sql`, `003_seed_data.sql`).
+

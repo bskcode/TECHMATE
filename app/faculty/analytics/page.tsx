@@ -10,10 +10,12 @@ import {
   ShieldAlert,
   Award,
   Layers,
+  Download,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useApp } from '@/components/providers/app-provider';
 import {
   ResponsiveContainer,
   RadarChart,
@@ -29,6 +31,9 @@ import {
 } from 'recharts';
 
 export default function FacultyAnalyticsPage() {
+  const { getActiveUser, toast } = useApp();
+  const activeFaculty = getActiveUser('faculty');
+
   const [courses, setCourses] = useState<any[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [analytics, setAnalytics] = useState<any>(null);
@@ -36,16 +41,19 @@ export default function FacultyAnalyticsPage() {
 
   useEffect(() => {
     async function loadCourses() {
-      const res = await fetch('/api/courses');
+      const res = await fetch(`/api/courses?userId=${activeFaculty.id}&role=faculty`);
       const data = await res.json();
       setCourses(data.courses || []);
       if (data.courses?.[0]) {
         setSelectedCourseId(data.courses[0].id);
         loadAnalytics(data.courses[0].id);
+      } else {
+        setSelectedCourseId('');
+        setAnalytics(null);
       }
     }
     loadCourses();
-  }, []);
+  }, [activeFaculty.id]);
 
   async function loadAnalytics(courseId: string) {
     const res = await fetch(`/api/courses/${courseId}/analytics`);
@@ -68,14 +76,33 @@ export default function FacultyAnalyticsPage() {
 
       const data = await res.json();
       if (data.success) {
-        alert('Personalized remediation package generated! Sent to Interventions tab for approval.');
+        toast('Personalized remediation package generated! Sent to Interventions tab for approval.', 'success');
         await loadAnalytics(selectedCourseId);
+      } else {
+        toast(data.error || 'Failed to generate intervention', 'error');
       }
     } catch (err: any) {
-      alert(`Error: ${err.message}`);
+      toast(`Error: ${err.message}`, 'error');
     } finally {
       setGeneratingForStudent(null);
     }
+  };
+
+  const handleExportCsv = () => {
+    if (!analytics?.traitData) return;
+    const rows = [
+      ['Trait', 'Class Average (%)'],
+      ...analytics.traitData.map((t: any) => [t.trait, String(t.classAverage)]),
+    ];
+    const csv = rows.map((r) => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `class-analytics-${selectedCourseId}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Exported analytics CSV.', 'success');
   };
 
   return (
@@ -105,6 +132,14 @@ export default function FacultyAnalyticsPage() {
               </option>
             ))}
           </select>
+          <Button
+            onClick={handleExportCsv}
+            variant="outline"
+            size="sm"
+            className="rounded-xl text-xs font-bold bg-white"
+          >
+            <Download className="w-3.5 h-3.5 mr-1.5" /> Export CSV
+          </Button>
         </div>
       </div>
 
@@ -125,18 +160,7 @@ export default function FacultyAnalyticsPage() {
 
             <div className="h-72 w-full pt-4">
               <ResponsiveContainer width="100%" height="100%">
-                <RadarChart
-                  data={
-                    analytics?.traitData || [
-                      { trait: 'Remembering', classAverage: 90 },
-                      { trait: 'Understanding', classAverage: 85 },
-                      { trait: 'Application', classAverage: 75 },
-                      { trait: 'Analysis', classAverage: 52 },
-                      { trait: 'Creativity', classAverage: 48 },
-                      { trait: 'Evaluation', classAverage: 65 },
-                    ]
-                  }
-                >
+                <RadarChart data={analytics?.traitData || []}>
                   <PolarGrid stroke="#E2E8F0" />
                   <PolarAngleAxis dataKey="trait" tick={{ fill: '#334155', fontSize: 11, fontWeight: 700 }} />
                   <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 9 }} />
@@ -169,16 +193,7 @@ export default function FacultyAnalyticsPage() {
             <div className="h-72 w-full pt-4">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={
-                    analytics?.traitData || [
-                      { trait: 'Remembering', classAverage: 90 },
-                      { trait: 'Understanding', classAverage: 85 },
-                      { trait: 'Application', classAverage: 75 },
-                      { trait: 'Analysis', classAverage: 52 },
-                      { trait: 'Creativity', classAverage: 48 },
-                      { trait: 'Evaluation', classAverage: 65 },
-                    ]
-                  }
+                  data={analytics?.traitData || []}
                   layout="vertical"
                   margin={{ left: 20, right: 20 }}
                 >
@@ -264,3 +279,4 @@ export default function FacultyAnalyticsPage() {
     </div>
   );
 }
+

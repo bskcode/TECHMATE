@@ -144,3 +144,4 @@ describe('Progressive 2-Hint State Machine', () => {
     ).toThrow(/Exactly 3 attempts/);
   });
 });
+

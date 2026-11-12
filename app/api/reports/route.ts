@@ -5,6 +5,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const studentId = searchParams.get('studentId');
   const courseId = searchParams.get('courseId');
+  const refresh = searchParams.get('refresh') === 'true';
 
   if (!studentId || !courseId) {
     return NextResponse.json(
@@ -13,12 +14,11 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  let report = db.getProgressReport(studentId, courseId);
+  let report = refresh ? undefined : db.getProgressReport(studentId, courseId);
   if (!report) {
-    // Check if there are baseline and final assessments
     const assessments = db.getAssessments(courseId);
-    const baseline = assessments.find((a) => a.assessment_type === 'diagnostic');
-    const final = assessments.find((a) => a.assessment_type === 'final');
+    const baseline = assessments.find((a) => a.assessment_type === 'diagnostic') || assessments[0];
+    const final = assessments.find((a) => a.assessment_type === 'final') || assessments[assessments.length - 1];
 
     if (baseline && final) {
       report = db.generateProgressReport(studentId, courseId, baseline.id, final.id);

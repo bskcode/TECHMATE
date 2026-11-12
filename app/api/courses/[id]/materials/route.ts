@@ -27,16 +27,19 @@ export async function POST(
 
     let extractedText = '';
     let characterCount = 0;
-    let fileType: 'pdf' | 'docx' | 'pptx' | 'txt' = 'txt';
+    let fileType: 'pdf' | 'docx' | 'pptx' | 'txt' | 'md' = 'txt';
 
-    if (filename.endsWith('.pdf')) fileType = 'pdf';
-    else if (filename.endsWith('.docx')) fileType = 'docx';
-    else if (filename.endsWith('.pptx')) fileType = 'pptx';
+    const lowerName = filename.toLowerCase();
+    if (lowerName.endsWith('.pdf')) fileType = 'pdf';
+    else if (lowerName.endsWith('.docx')) fileType = 'docx';
+    else if (lowerName.endsWith('.pptx')) fileType = 'pptx';
+    else if (lowerName.endsWith('.md')) fileType = 'md';
 
     if (file) {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
-      const extraction = await extractTextFromBuffer(buffer, fileType);
+      const parseType = fileType === 'md' ? 'txt' : fileType;
+      const extraction = await extractTextFromBuffer(buffer, parseType);
       if (!extraction.success) {
         return NextResponse.json({ success: false, error: extraction.error }, { status: 400 });
       }
@@ -55,7 +58,7 @@ export async function POST(
       uploader_id,
       filename,
       storage_path: `materials/${params.id}/${filename}`,
-      file_type: fileType === 'txt' ? 'pdf' : fileType,
+      file_type: fileType,
       file_size_bytes: file ? file.size : Buffer.byteLength(extractedText),
       extracted_text: extractedText,
       character_count: characterCount,
@@ -68,3 +71,4 @@ export async function POST(
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
+

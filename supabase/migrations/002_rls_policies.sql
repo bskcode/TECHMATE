@@ -351,3 +351,4 @@ USING (EXISTS (
 CREATE POLICY "Students can view own progress reports"
 ON public.progress_reports FOR SELECT TO authenticated
 USING (student_id = auth.uid());
+

@@ -15,41 +15,85 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useApp } from '@/components/providers/app-provider';
 
 export default function StudentInterventionsPage() {
+  const { getActiveUser } = useApp();
+  const activeStudent = getActiveUser('student');
+
   const [interventions, setInterventions] = useState<any[]>([]);
   const [selectedIntervention, setSelectedIntervention] = useState<any>(null);
-  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
+  const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     async function loadData() {
       const res = await fetch(
-        '/api/interventions?studentId=00000000-0000-0000-0000-000000000101&onlyReleased=true'
+        `/api/interventions?studentId=${activeStudent.id}&onlyReleased=true`
       );
       const data = await res.json();
-      setInterventions(data.interventions || []);
-      if (data.interventions?.[0]) {
-        setSelectedIntervention(data.interventions[0]);
+      const list = data.interventions || [];
+      setInterventions(list);
+      if (list[0]) {
+        selectIntervention(list[0]);
+      } else {
+        setSelectedIntervention(null);
+        setCheckedItems({});
       }
     }
     loadData();
-  }, []);
+  }, [activeStudent.id]);
 
-  const toggleCheck = (idx: number) => {
-    setCheckedItems({
-      ...checkedItems,
-      [idx]: !checkedItems[idx],
+  const selectIntervention = (item: any) => {
+    setSelectedIntervention(item);
+    const map: Record<number, boolean> = {};
+    (item.completed_checklist_items || []).forEach((idx: number) => {
+      map[idx] = true;
+    });
+    setCheckedItems(map);
+  };
+
+  const toggleCheck = async (idx: number) => {
+    if (!selectedIntervention) return;
+    const next = { ...checkedItems, [idx]: !checkedItems[idx] };
+    setCheckedItems(next);
+    const completed = Object.entries(next)
+      .filter(([, v]) => v)
+      .map(([k]) => Number(k));
+    await fetch(`/api/interventions/${selectedIntervention.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ completed_checklist_items: completed }),
     });
   };
 
   return (
     <div className="space-y-8 animate-fadeIn">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-black text-gray-900 tracking-tight">Personalized Learning Center</h1>
-        <p className="text-sm text-gray-500 font-medium">
-          Faculty-approved study guides and targeted analogies grounded in your course materials.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Personalized Learning Center</h1>
+          <p className="text-sm text-gray-500 font-medium">
+            Faculty-approved study guides and targeted analogies grounded in your course materials.
+          </p>
+        </div>
+
+        {interventions.length > 1 && (
+          <div className="flex flex-wrap gap-2">
+            {interventions.map((inv, idx) => (
+              <button
+                key={inv.id}
+                onClick={() => selectIntervention(inv)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                  selectedIntervention?.id === inv.id
+                    ? 'bg-[#3E2D68] text-white'
+                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                Plan #{idx + 1}: {inv.weak_traits?.slice(0, 2).join(', ')}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {selectedIntervention ? (
@@ -58,9 +102,11 @@ export default function StudentInterventionsPage() {
           <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-r from-[#3E2D68] to-[#553E8A] text-white p-6 sm:p-8 space-y-3">
             <div className="flex items-center space-x-2">
               <Badge variant="emerald" className="text-xs font-bold uppercase">
-                Faculty Approved & Released
+                Faculty Approved &amp; Released
               </Badge>
-              <span className="text-xs text-purple-200">By Dr. Aris Thorne</span>
+              <span className="text-xs text-purple-200">
+                Focus: {selectedIntervention.weak_traits?.join(', ')}
+              </span>
             </div>
 
             <h2 className="text-xl sm:text-2xl font-black leading-tight">
@@ -183,3 +229,4 @@ export default function StudentInterventionsPage() {
     </div>
   );
 }
+

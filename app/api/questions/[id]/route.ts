@@ -18,3 +18,14 @@ export async function PUT(
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const deleted = db.deleteQuestion(params.id);
+  if (!deleted) {
+    return NextResponse.json({ success: false, error: 'Question not found' }, { status: 404 });
+  }
+  return NextResponse.json({ success: true, message: 'Question deleted' });
+}

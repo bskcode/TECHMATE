@@ -47,3 +47,4 @@ Hints are never stored in client-accessible state. When a student submits Respon
 ## 4. API Key Protection
 - `SUPABASE_SERVICE_ROLE_KEY` is restricted strictly to server-side operations and never exposed with `NEXT_PUBLIC_` prefixes.
 - `GROQ_API_KEY` is loaded strictly server-side in API routes and server modules.
+

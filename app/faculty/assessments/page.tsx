@@ -14,13 +14,18 @@ import {
   HelpCircle,
   BrainCircuit,
   Lock,
+  Trash2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BloomTrait, Question } from '@/types';
+import { useApp } from '@/components/providers/app-provider';
 
 export default function AssessmentsPage() {
+  const { getActiveUser, toast, confirmAction } = useApp();
+  const activeFaculty = getActiveUser('faculty');
+
   const [courses, setCourses] = useState<any[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [assessments, setAssessments] = useState<any[]>([]);
@@ -45,24 +50,46 @@ export default function AssessmentsPage() {
   // Edit Question Modal
   const [editingQuestion, setEditingQuestion] = useState<any>(null);
 
+  // Manual Question Modal
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualQ, setManualQ] = useState({
+    question_text: '',
+    question_type: 'mcq' as 'mcq' | 'multiple_select' | 'true_false' | 'numeric' | 'fill_in_blank',
+    optionsText: 'Option A\nOption B\nOption C\nOption D',
+    max_marks: 5,
+    primary_trait: 'understanding' as BloomTrait,
+    difficulty: 'medium' as 'easy' | 'medium' | 'hard',
+    correct_answer: '',
+    explanation: '',
+    hint_1: '',
+    hint_2: '',
+  });
+
   // Create Assessment Modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newType, setNewType] = useState<'diagnostic' | 'module' | 'final'>('diagnostic');
   const [newDuration, setNewDuration] = useState(30);
+  const [newMaxMarks, setNewMaxMarks] = useState(30);
+  const [newPassingMarks, setNewPassingMarks] = useState(15);
 
   useEffect(() => {
     async function loadCourses() {
-      const res = await fetch('/api/courses');
+      const res = await fetch(`/api/courses?userId=${activeFaculty.id}&role=faculty`);
       const data = await res.json();
       setCourses(data.courses || []);
       if (data.courses?.[0]) {
         setSelectedCourseId(data.courses[0].id);
         loadAssessments(data.courses[0].id);
+      } else {
+        setSelectedCourseId('');
+        setAssessments([]);
+        setSelectedAssessment(null);
+        setQuestions([]);
       }
     }
     loadCourses();
-  }, []);
+  }, [activeFaculty.id]);
 
   async function loadAssessments(courseId: string) {
     setLoading(true);
@@ -72,6 +99,9 @@ export default function AssessmentsPage() {
       setAssessments(data.assessments || []);
       if (data.assessments?.[0]) {
         loadAssessmentDetails(data.assessments[0].id);
+      } else {
+        setSelectedAssessment(null);
+        setQuestions([]);
       }
     } finally {
       setLoading(false);
@@ -102,12 +132,14 @@ export default function AssessmentsPage() {
       const data = await res.json();
       if (data.success) {
         setShowGenerateModal(false);
+        toast(data.message || 'Questions generated successfully!', 'success');
         await loadAssessmentDetails(selectedAssessment.id);
+        await loadAssessments(selectedCourseId);
       } else {
-        alert(`Generation error: ${data.error}`);
+        toast(`Generation error: ${data.error}`, 'error');
       }
     } catch (err: any) {
-      alert(`Error: ${err.message}`);
+      toast(`Error: ${err.message}`, 'error');
     } finally {
       setGenerating(false);
     }
@@ -115,15 +147,23 @@ export default function AssessmentsPage() {
 
   const handlePublishAssessment = async () => {
     if (!selectedAssessment) return;
-    if (!confirm('Publish this assessment? Once published, version will be locked and students can attempt it.')) return;
+    const ok = await confirmAction({
+      title: 'Publish Assessment',
+      message: 'Publish this assessment? Once published, students enrolled in the course can attempt it.',
+      confirmLabel: 'Publish Now',
+    });
+    if (!ok) return;
 
     const res = await fetch(`/api/assessments/${selectedAssessment.id}/publish`, {
       method: 'POST',
     });
     const data = await res.json();
     if (data.success) {
+      toast('Assessment published!', 'success');
       await loadAssessmentDetails(selectedAssessment.id);
       await loadAssessments(selectedCourseId);
+    } else {
+      toast(data.error || 'Failed to publish', 'error');
     }
   };
 
@@ -132,19 +172,102 @@ export default function AssessmentsPage() {
     if (!editingQuestion) return;
 
     try {
+      const payload = { ...editingQuestion };
+      if (typeof payload._optionsText === 'string') {
+        payload.options = payload._optionsText
+          .split('\n')
+          .map((s: string) => s.trim())
+          .filter(Boolean);
+        delete payload._optionsText;
+      }
+
       const res = await fetch(`/api/questions/${editingQuestion.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editingQuestion),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
       if (data.success) {
         setEditingQuestion(null);
+        toast('Question package updated!', 'success');
         await loadAssessmentDetails(selectedAssessment.id);
+      } else {
+        toast(data.error || 'Save failed', 'error');
       }
     } catch (err: any) {
-      alert(`Save error: ${err.message}`);
+      toast(`Save error: ${err.message}`, 'error');
+    }
+  };
+
+  const handleDeleteQuestion = async (questionId: string) => {
+    const ok = await confirmAction({
+      title: 'Delete Question',
+      message: 'Remove this question package from the assessment?',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
+    const res = await fetch(`/api/questions/${questionId}`, { method: 'DELETE' });
+    if (res.ok) {
+      toast('Question removed.', 'info');
+      await loadAssessmentDetails(selectedAssessment.id);
+      await loadAssessments(selectedCourseId);
+    }
+  };
+
+  const handleCreateManualQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAssessment) return;
+    try {
+      const options =
+        manualQ.question_type === 'mcq' || manualQ.question_type === 'multiple_select'
+          ? manualQ.optionsText.split('\n').map((s) => s.trim()).filter(Boolean)
+          : manualQ.question_type === 'true_false'
+          ? ['True', 'False']
+          : undefined;
+
+      const res = await fetch('/api/questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assessment_id: selectedAssessment.id,
+          question_text: manualQ.question_text,
+          question_type: manualQ.question_type,
+          options,
+          max_marks: manualQ.max_marks,
+          primary_trait: manualQ.primary_trait,
+          difficulty: manualQ.difficulty,
+          correct_answer: manualQ.correct_answer,
+          explanation: manualQ.explanation,
+          hint_1: manualQ.hint_1 || undefined,
+          hint_2: manualQ.hint_2 || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowManualModal(false);
+        setManualQ({
+          question_text: '',
+          question_type: 'mcq',
+          optionsText: 'Option A\nOption B\nOption C\nOption D',
+          max_marks: 5,
+          primary_trait: 'understanding',
+          difficulty: 'medium',
+          correct_answer: '',
+          explanation: '',
+          hint_1: '',
+          hint_2: '',
+        });
+        toast('Manual question package added!', 'success');
+        await loadAssessmentDetails(selectedAssessment.id);
+        await loadAssessments(selectedCourseId);
+      } else {
+        toast(data.error || 'Failed to add question', 'error');
+      }
+    } catch (err: any) {
+      toast(err.message, 'error');
     }
   };
 
@@ -158,8 +281,8 @@ export default function AssessmentsPage() {
           title: newTitle,
           assessment_type: newType,
           time_limit_minutes: newDuration,
-          max_marks: 30,
-          passing_marks: 15,
+          max_marks: newMaxMarks,
+          passing_marks: newPassingMarks,
           progressive_hints_enabled: true,
         }),
       });
@@ -168,11 +291,14 @@ export default function AssessmentsPage() {
       if (data.success) {
         setShowCreateModal(false);
         setNewTitle('');
+        toast('Draft assessment created!', 'success');
         await loadAssessments(selectedCourseId);
         loadAssessmentDetails(data.assessment.id);
+      } else {
+        toast(data.error || 'Failed to create assessment', 'error');
       }
     } catch (err: any) {
-      alert(err.message);
+      toast(err.message, 'error');
     }
   };
 
@@ -281,8 +407,17 @@ export default function AssessmentsPage() {
               </div>
             </div>
 
-            {/* Actions: Generate with AI or Publish */}
-            <div className="flex items-center space-x-3">
+            {/* Actions: Add Manual, Generate with AI or Publish */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                onClick={() => setShowManualModal(true)}
+                variant="outline"
+                className="rounded-xl text-xs font-bold border-gray-200 text-gray-700 bg-white hover:bg-gray-50 flex items-center space-x-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Question</span>
+              </Button>
+
               <Button
                 onClick={() => setShowGenerateModal(true)}
                 variant="outline"
@@ -361,15 +496,29 @@ export default function AssessmentsPage() {
                     </Badge>
                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs font-bold text-gray-900">{q.max_marks} Marks</span>
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-xs font-bold text-gray-900 mr-1">{q.max_marks} Marks</span>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setEditingQuestion(JSON.parse(JSON.stringify(q)))}
+                      onClick={() => {
+                        const copy = JSON.parse(JSON.stringify(q));
+                        copy._optionsText = Array.isArray(copy.options) ? copy.options.join('\n') : '';
+                        setEditingQuestion(copy);
+                      }}
                       className="rounded-lg text-gray-500 hover:text-[#3E2D68]"
+                      title="Edit Question"
                     >
                       <Edit3 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteQuestion(q.id)}
+                      className="rounded-lg text-gray-400 hover:text-rose-600"
+                      title="Delete Question"
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
@@ -576,6 +725,63 @@ export default function AssessmentsPage() {
                 />
               </div>
 
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Marks</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={editingQuestion.max_marks}
+                    onChange={(e) =>
+                      setEditingQuestion({ ...editingQuestion, max_marks: Number(e.target.value) })
+                    }
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Bloom Trait</label>
+                  <select
+                    value={editingQuestion.primary_trait}
+                    onChange={(e) =>
+                      setEditingQuestion({ ...editingQuestion, primary_trait: e.target.value })
+                    }
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs capitalize"
+                  >
+                    {['remembering', 'understanding', 'application', 'analysis', 'creativity', 'evaluation'].map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Difficulty</label>
+                  <select
+                    value={editingQuestion.difficulty}
+                    onChange={(e) =>
+                      setEditingQuestion({ ...editingQuestion, difficulty: e.target.value })
+                    }
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs capitalize"
+                  >
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                  </select>
+                </div>
+              </div>
+
+              {(editingQuestion.question_type === 'mcq' || editingQuestion.question_type === 'multiple_select') && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Options (one per line)</label>
+                  <textarea
+                    rows={3}
+                    value={editingQuestion._optionsText || ''}
+                    onChange={(e) =>
+                      setEditingQuestion({ ...editingQuestion, _optionsText: e.target.value })
+                    }
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs font-mono focus:outline-none focus:border-[#3E2D68]"
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">Correct Answer</label>
                 <input
@@ -690,14 +896,37 @@ export default function AssessmentsPage() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Duration (Minutes)</label>
-                <input
-                  type="number"
-                  value={newDuration}
-                  onChange={(e) => setNewDuration(Number(e.target.value))}
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs focus:outline-none focus:border-[#3E2D68]"
-                />
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Duration (Min)</label>
+                  <input
+                    type="number"
+                    min={5}
+                    value={newDuration}
+                    onChange={(e) => setNewDuration(Number(e.target.value))}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs focus:outline-none focus:border-[#3E2D68]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Max Marks</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={newMaxMarks}
+                    onChange={(e) => setNewMaxMarks(Number(e.target.value))}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs focus:outline-none focus:border-[#3E2D68]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Passing Marks</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={newPassingMarks}
+                    onChange={(e) => setNewPassingMarks(Number(e.target.value))}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs focus:outline-none focus:border-[#3E2D68]"
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-end space-x-3 pt-3 border-t border-gray-100">
@@ -717,6 +946,124 @@ export default function AssessmentsPage() {
           </div>
         </div>
       )}
+
+      {/* Manual Question Modal */}
+      {showManualModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-xl w-full shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto animate-scaleUp">
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <h3 className="text-base font-bold text-gray-900">Add Manual Question Package</h3>
+              <button
+                onClick={() => setShowManualModal(false)}
+                className="text-gray-400 hover:text-gray-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleCreateManualQuestion} className="space-y-3">
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Type</label>
+                  <select
+                    value={manualQ.question_type}
+                    onChange={(e) => setManualQ({ ...manualQ, question_type: e.target.value as any })}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs"
+                  >
+                    <option value="mcq">MCQ</option>
+                    <option value="multiple_select">Multiple Select</option>
+                    <option value="true_false">True / False</option>
+                    <option value="numeric">Numeric</option>
+                    <option value="fill_in_blank">Fill in Blank</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Bloom Trait</label>
+                  <select
+                    value={manualQ.primary_trait}
+                    onChange={(e) => setManualQ({ ...manualQ, primary_trait: e.target.value as BloomTrait })}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs capitalize"
+                  >
+                    {['remembering', 'understanding', 'application', 'analysis', 'creativity', 'evaluation'].map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Marks</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={manualQ.max_marks}
+                    onChange={(e) => setManualQ({ ...manualQ, max_marks: Number(e.target.value) })}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Question Prompt</label>
+                <textarea
+                  rows={2}
+                  required
+                  value={manualQ.question_text}
+                  onChange={(e) => setManualQ({ ...manualQ, question_text: e.target.value })}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs"
+                />
+              </div>
+              {(manualQ.question_type === 'mcq' || manualQ.question_type === 'multiple_select') && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Options (one per line)</label>
+                  <textarea
+                    rows={3}
+                    value={manualQ.optionsText}
+                    onChange={(e) => setManualQ({ ...manualQ, optionsText: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs font-mono"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Correct Answer</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Exact option text, True/False, or numeric value"
+                  value={manualQ.correct_answer}
+                  onChange={(e) => setManualQ({ ...manualQ, correct_answer: e.target.value })}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Hint 1 (-25%)</label>
+                  <input
+                    type="text"
+                    value={manualQ.hint_1}
+                    onChange={(e) => setManualQ({ ...manualQ, hint_1: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Hint 2 (-50%)</label>
+                  <input
+                    type="text"
+                    value={manualQ.hint_2}
+                    onChange={(e) => setManualQ({ ...manualQ, hint_2: e.target.value })}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-gray-100">
+                <Button type="button" variant="outline" onClick={() => setShowManualModal(false)} className="rounded-xl text-xs">
+                  Cancel
+                </Button>
+                <Button type="submit" className="rounded-xl text-xs font-bold bg-[#3E2D68]">
+                  Save Question
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

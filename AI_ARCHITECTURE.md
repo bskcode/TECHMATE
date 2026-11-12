@@ -58,3 +58,4 @@ Every question is mapped to a cognitive dimension:
 - When students submit an incorrect answer on Attempt 2, **Hint 2** is unlocked by the server.
 - Attempt 3 is final. Submitting a 4th attempt is rejected by the backend state machine.
 - Locked hints are never transmitted to the student's browser until unlocked by the server state machine.
+

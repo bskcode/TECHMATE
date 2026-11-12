@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { AppProvider } from '@/components/providers/app-provider';
 
 export const metadata: Metadata = {
   title: 'AdaptiveLearn AI — Trait-Based Assessment & Personalized Learning',
@@ -15,7 +16,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased bg-[#F4F5FA] text-gray-900 min-h-screen">
-        {children}
+        <AppProvider>{children}</AppProvider>
       </body>
     </html>
   );

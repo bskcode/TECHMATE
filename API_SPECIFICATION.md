@@ -133,3 +133,4 @@ All endpoints are authenticated, enforce role-based access control (RBAC), and v
 ### `GET /api/reports`
 - **Query Params**: `courseId`, `studentId`
 - **Response**: Accreditation progress report comparing Baseline Diagnostic vs Final Examination with $\Delta \text{Trait}$ percentage point improvements.
+

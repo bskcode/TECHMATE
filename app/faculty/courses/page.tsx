@@ -1,35 +1,49 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Plus, Copy, Check, Users, Layers, Award, Sparkles } from 'lucide-react';
+import { BookOpen, Plus, Copy, Check, Users, Layers, Award, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useApp } from '@/components/providers/app-provider';
 
 export default function CoursesPage() {
+  const { getActiveUser, toast, confirmAction } = useApp();
+  const activeFaculty = getActiveUser('faculty');
+
   const [courses, setCourses] = useState<any[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [courseDetails, setCourseDetails] = useState<any>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  // Form state
+  // Course form state
   const [code, setCode] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [term, setTerm] = useState('Fall 2026');
   const [creating, setCreating] = useState(false);
 
+  // Module & Outcome form state
+  const [moduleTitle, setModuleTitle] = useState('');
+  const [moduleDesc, setModuleDesc] = useState('');
+  const [outcomeCode, setOutcomeCode] = useState('');
+  const [outcomeDesc, setOutcomeDesc] = useState('');
+
   useEffect(() => {
     loadCourses();
-  }, []);
+  }, [activeFaculty.id]);
 
   async function loadCourses() {
-    const res = await fetch('/api/courses');
+    const res = await fetch(`/api/courses?userId=${activeFaculty.id}&role=faculty`);
     const data = await res.json();
-    setCourses(data.courses || []);
-    if (data.courses?.[0]) {
-      loadCourseDetails(data.courses[0].id);
+    const list = data.courses || [];
+    setCourses(list);
+    if (list[0]) {
+      loadCourseDetails(list[0].id);
+    } else {
+      setSelectedCourse(null);
+      setCourseDetails(null);
     }
   }
 
@@ -58,7 +72,7 @@ export default function CoursesPage() {
           title,
           description,
           term,
-          instructor_id: '00000000-0000-0000-0000-000000000001',
+          instructor_id: activeFaculty.id,
         }),
       });
       const data = await res.json();
@@ -67,12 +81,89 @@ export default function CoursesPage() {
         setCode('');
         setTitle('');
         setDescription('');
+        toast(`Course ${data.course.code} created!`, 'success');
         await loadCourses();
+      } else {
+        toast(data.error || 'Failed to create course', 'error');
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast(err.message || 'Failed to create course', 'error');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleAddModule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCourse || !moduleTitle.trim()) return;
+    const res = await fetch(`/api/courses/${selectedCourse.id}/modules`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: moduleTitle, description: moduleDesc }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      setModuleTitle('');
+      setModuleDesc('');
+      toast('Module added', 'success');
+      await loadCourseDetails(selectedCourse.id);
+    } else {
+      toast(data.error || 'Failed to add module', 'error');
+    }
+  };
+
+  const handleDeleteModule = async (moduleId: string) => {
+    if (!selectedCourse) return;
+    const ok = await confirmAction({
+      title: 'Delete Module',
+      message: 'Remove this curriculum module from the course?',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    const res = await fetch(`/api/courses/${selectedCourse.id}/modules?moduleId=${moduleId}`, {
+      method: 'DELETE',
+    });
+    if (res.ok) {
+      toast('Module removed', 'info');
+      await loadCourseDetails(selectedCourse.id);
+    }
+  };
+
+  const handleAddOutcome = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCourse || !outcomeCode.trim() || !outcomeDesc.trim()) return;
+    const res = await fetch(`/api/courses/${selectedCourse.id}/outcomes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: outcomeCode, description: outcomeDesc }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      setOutcomeCode('');
+      setOutcomeDesc('');
+      toast('Course outcome added', 'success');
+      await loadCourseDetails(selectedCourse.id);
+    } else {
+      toast(data.error || 'Failed to add outcome', 'error');
+    }
+  };
+
+  const handleDeleteOutcome = async (outcomeId: string) => {
+    if (!selectedCourse) return;
+    const ok = await confirmAction({
+      title: 'Delete Course Outcome',
+      message: 'Remove this course outcome?',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    const res = await fetch(`/api/courses/${selectedCourse.id}/outcomes?outcomeId=${outcomeId}`, {
+      method: 'DELETE',
+    });
+    if (res.ok) {
+      toast('Outcome removed', 'info');
+      await loadCourseDetails(selectedCourse.id);
     }
   };
 
@@ -142,7 +233,7 @@ export default function CoursesPage() {
 
                   <div className="flex items-center space-x-1 text-xs text-gray-500 font-medium">
                     <Users className="w-3.5 h-3.5 text-gray-400" />
-                    <span>25 students</span>
+                    <span>{c.enrolled_count ?? 0} students</span>
                   </div>
                 </div>
               </CardContent>
@@ -166,18 +257,55 @@ export default function CoursesPage() {
                   {courseDetails.modules?.length || 0} Modules
                 </Badge>
               </CardHeader>
-              <CardContent className="pt-4 divide-y divide-gray-100 space-y-3">
-                {courseDetails.modules?.map((m: any, idx: number) => (
-                  <div key={m.id} className="pt-3 first:pt-0">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-bold text-gray-900">
-                        {m.title}
-                      </h4>
-                      <span className="text-xs font-mono text-gray-400">Idx #{m.order_index}</span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">{m.description}</p>
+              <CardContent className="pt-4 space-y-4">
+                <div className="divide-y divide-gray-100 space-y-3">
+                  {courseDetails.modules?.length === 0 ? (
+                    <p className="text-xs text-gray-400 py-2">No modules yet. Add your first module below.</p>
+                  ) : (
+                    courseDetails.modules?.map((m: any) => (
+                      <div key={m.id} className="pt-3 first:pt-0 flex items-start justify-between gap-3">
+                        <div>
+                          <h4 className="text-sm font-bold text-gray-900">{m.title}</h4>
+                          <p className="text-xs text-gray-500 mt-1">{m.description}</p>
+                        </div>
+                        <div className="flex items-center space-x-2 shrink-0">
+                          <span className="text-xs font-mono text-gray-400">#{m.order_index}</span>
+                          <button
+                            onClick={() => handleDeleteModule(m.id)}
+                            className="text-gray-400 hover:text-rose-600 p-1 rounded-lg hover:bg-rose-50 transition-colors"
+                            title="Delete module"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <form onSubmit={handleAddModule} className="pt-3 border-t border-gray-100 space-y-2">
+                  <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Add Curriculum Module</p>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Module title (e.g. Module 4: Neural Networks)"
+                    value={moduleTitle}
+                    onChange={(e) => setModuleTitle(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs focus:outline-none focus:border-[#3E2D68]"
+                  />
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      placeholder="Brief module summary..."
+                      value={moduleDesc}
+                      onChange={(e) => setModuleDesc(e.target.value)}
+                      className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-xs focus:outline-none focus:border-[#3E2D68]"
+                    />
+                    <Button type="submit" size="sm" className="rounded-xl text-xs font-bold">
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Add
+                    </Button>
                   </div>
-                ))}
+                </form>
               </CardContent>
             </Card>
           </div>
@@ -190,19 +318,63 @@ export default function CoursesPage() {
                   <Award className="w-5 h-5 text-emerald-600" />
                   <CardTitle className="text-base font-bold text-gray-900">Course Outcomes (COs)</CardTitle>
                 </div>
-                <Badge variant="emerald" className="text-xs">
-                  Accredited
-                </Badge>
+                <a
+                  href="/templates/course-objectives-template.md"
+                  download
+                  className="text-[11px] font-bold text-[#3E2D68] hover:underline bg-purple-50 px-2.5 py-1 rounded-full"
+                >
+                  Download CO Template
+                </a>
               </CardHeader>
-              <CardContent className="pt-4 divide-y divide-gray-100 space-y-3">
-                {courseDetails.outcomes?.map((co: any) => (
-                  <div key={co.id} className="pt-3 first:pt-0 flex items-start space-x-3">
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-bold shrink-0 mt-0.5">
-                      {co.code}
-                    </span>
-                    <p className="text-xs text-gray-700 leading-relaxed">{co.description}</p>
+              <CardContent className="pt-4 space-y-4">
+                <div className="divide-y divide-gray-100 space-y-3">
+                  {courseDetails.outcomes?.length === 0 ? (
+                    <p className="text-xs text-gray-400 py-2">No outcomes defined yet. Add Bloom-aligned outcomes below.</p>
+                  ) : (
+                    courseDetails.outcomes?.map((co: any) => (
+                      <div key={co.id} className="pt-3 first:pt-0 flex items-start justify-between gap-3">
+                        <div className="flex items-start space-x-3">
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-bold shrink-0 mt-0.5">
+                            {co.code}
+                          </span>
+                          <p className="text-xs text-gray-700 leading-relaxed">{co.description}</p>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteOutcome(co.id)}
+                          className="text-gray-400 hover:text-rose-600 p-1 rounded-lg hover:bg-rose-50 transition-colors shrink-0"
+                          title="Delete outcome"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <form onSubmit={handleAddOutcome} className="pt-3 border-t border-gray-100 space-y-2">
+                  <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Add Course Outcome</p>
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      required
+                      placeholder="CO4"
+                      value={outcomeCode}
+                      onChange={(e) => setOutcomeCode(e.target.value)}
+                      className="w-20 rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold focus:outline-none focus:border-[#3E2D68]"
+                    />
+                    <input
+                      type="text"
+                      required
+                      placeholder="[Bloom Level] Measurable action verb + concept..."
+                      value={outcomeDesc}
+                      onChange={(e) => setOutcomeDesc(e.target.value)}
+                      className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-xs focus:outline-none focus:border-[#3E2D68]"
+                    />
+                    <Button type="submit" size="sm" className="rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700">
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Add
+                    </Button>
                   </div>
-                ))}
+                </form>
               </CardContent>
             </Card>
           </div>
@@ -293,3 +465,4 @@ export default function CoursesPage() {
     </div>
   );
 }
+

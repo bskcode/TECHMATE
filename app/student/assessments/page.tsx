@@ -22,9 +22,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import confetti from 'canvas-confetti';
+import { useApp } from '@/components/providers/app-provider';
 
 export default function StudentAssessmentExamRoom() {
   const router = useRouter();
+  const { getActiveUser, toast, confirmAction } = useApp();
+  const activeStudent = getActiveUser('student');
 
   const [courses, setCourses] = useState<any[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
@@ -36,6 +39,7 @@ export default function StudentAssessmentExamRoom() {
   const [attempt, setAttempt] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
   // Student Answers & State Machine Tracking per question
   // questionId -> { currentAnswer, responseNumber (1,2,3), isFinalized, isCorrect, feedback, hint1Text, hint2Text, awardedMarks }
@@ -44,25 +48,66 @@ export default function StudentAssessmentExamRoom() {
   const [finalizing, setFinalizing] = useState(false);
   const [finalResult, setFinalResult] = useState<any>(null);
 
+  async function loadAssessmentsForCourse(courseId: string) {
+    const aRes = await fetch(`/api/courses/${courseId}/assessments?onlyPublished=true`);
+    const aData = await aRes.json();
+    const list = aData.assessments || [];
+    setAssessments(list);
+    setSelectedAssessmentId(list[0]?.id || '');
+  }
+
   useEffect(() => {
     async function loadData() {
-      const cRes = await fetch('/api/courses?userId=00000000-0000-0000-0000-000000000101&role=student');
+      const cRes = await fetch(`/api/courses?userId=${activeStudent.id}&role=student`);
       const cData = await cRes.json();
-      setCourses(cData.courses || []);
+      const list = cData.courses || [];
+      setCourses(list);
 
-      if (cData.courses?.[0]?.id) {
-        const courseId = cData.courses[0].id;
-        setSelectedCourseId(courseId);
-        const aRes = await fetch(`/api/courses/${courseId}/assessments?onlyPublished=true`);
-        const aData = await aRes.json();
-        setAssessments(aData.assessments || []);
-        if (aData.assessments?.[0]?.id) {
-          setSelectedAssessmentId(aData.assessments[0].id);
-        }
+      if (list[0]?.id) {
+        setSelectedCourseId(list[0].id);
+        await loadAssessmentsForCourse(list[0].id);
+      } else {
+        setSelectedCourseId('');
+        setAssessments([]);
+        setSelectedAssessmentId('');
       }
     }
     loadData();
-  }, []);
+  }, [activeStudent.id]);
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (!examStarted || finalResult || secondsLeft === null) return;
+    if (secondsLeft <= 0) {
+      if (!finalizing && attempt) {
+        (async () => {
+          setFinalizing(true);
+          try {
+            const res = await fetch(`/api/attempts/${attempt.id}/finalize`, { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+              setFinalResult(data);
+              toast('Time expired! Your assessment has been automatically submitted.', 'warning');
+            }
+          } finally {
+            setFinalizing(false);
+          }
+        })();
+      }
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setSecondsLeft((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [examStarted, finalResult, secondsLeft, finalizing, attempt, toast]);
+
+  const formatTimer = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
 
   const handleStartExam = async () => {
     if (!selectedAssessmentId) return;
@@ -72,7 +117,7 @@ export default function StudentAssessmentExamRoom() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         assessment_id: selectedAssessmentId,
-        student_id: '00000000-0000-0000-0000-000000000101',
+        student_id: activeStudent.id,
       }),
     });
 
@@ -80,6 +125,13 @@ export default function StudentAssessmentExamRoom() {
     if (data.success) {
       setAttempt(data.attempt);
       setQuestions(data.questions || []);
+
+      const selectedAsmt = assessments.find((a) => a.id === selectedAssessmentId);
+      const limitMins = selectedAsmt?.time_limit_minutes || 30;
+      const elapsedSec = data.attempt?.started_at
+        ? Math.floor((Date.now() - new Date(data.attempt.started_at).getTime()) / 1000)
+        : 0;
+      setSecondsLeft(Math.max(0, limitMins * 60 - elapsedSec));
 
       // Initialize question state dictionary
       const initialStates: Record<string, any> = {};
@@ -102,6 +154,9 @@ export default function StudentAssessmentExamRoom() {
         data.responses.forEach((r: any) => {
           if (initialStates[r.question_id]) {
             initialStates[r.question_id].currentAnswer = r.student_answer;
+            initialStates[r.question_id].selectedOptions = r.student_answer
+              ? String(r.student_answer).split(',').map((s: string) => s.trim())
+              : [];
             initialStates[r.question_id].awardedMarks = r.awarded_marks;
             initialStates[r.question_id].isCorrect = r.is_correct;
             initialStates[r.question_id].feedback = r.feedback;
@@ -114,9 +169,26 @@ export default function StudentAssessmentExamRoom() {
         });
       }
 
+      // Restore unlocked hints on resume
+      if (data.hintEvents && data.hintEvents.length > 0) {
+        data.hintEvents.forEach((he: any) => {
+          if (initialStates[he.question_id]) {
+            if (he.hint_number === 1) {
+              initialStates[he.question_id].hint1Text =
+                he.hint_text || 'Hint 1 unlocked (25% penalty applied).';
+            } else if (he.hint_number === 2) {
+              initialStates[he.question_id].hint2Text =
+                he.hint_text || 'Hint 2 unlocked (50% penalty applied).';
+            }
+          }
+        });
+      }
+
       setQuestionStates(initialStates);
       setCurrentIndex(0);
       setExamStarted(true);
+    } else {
+      toast(data.error || 'Could not start assessment', 'error');
     }
   };
 
@@ -156,7 +228,7 @@ export default function StudentAssessmentExamRoom() {
 
     const answer = currentState.currentAnswer.trim();
     if (!answer) {
-      alert('Please enter or select an answer before submitting.');
+      toast('Please enter or select an answer before submitting.', 'warning');
       return;
     }
 
@@ -203,10 +275,10 @@ export default function StudentAssessmentExamRoom() {
           [currentQ.id]: updated,
         });
       } else {
-        alert(data.error);
+        toast(data.error || 'Submission failed', 'error');
       }
     } catch (err: any) {
-      alert(`Submission error: ${err.message}`);
+      toast(`Submission error: ${err.message}`, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -214,7 +286,12 @@ export default function StudentAssessmentExamRoom() {
 
   const handleFinalizeExam = async () => {
     if (!attempt) return;
-    if (!confirm('Finalize your assessment attempt? This will submit all responses and calculate your Bloom cognitive trait scores.')) return;
+    const ok = await confirmAction({
+      title: 'Finalize Assessment',
+      message: 'Finalize your assessment attempt? This will submit all responses and calculate your Bloom cognitive trait scores.',
+      confirmLabel: 'Submit & Score',
+    });
+    if (!ok) return;
 
     setFinalizing(true);
     try {
@@ -226,9 +303,11 @@ export default function StudentAssessmentExamRoom() {
       if (data.success) {
         setFinalResult(data);
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      } else {
+        toast(data.error || 'Failed to finalize', 'error');
       }
     } catch (err: any) {
-      alert(err.message);
+      toast(err.message, 'error');
     } finally {
       setFinalizing(false);
     }
@@ -252,7 +331,10 @@ export default function StudentAssessmentExamRoom() {
                 <label className="block text-xs font-bold text-gray-700 mb-1">Select Course</label>
                 <select
                   value={selectedCourseId}
-                  onChange={(e) => setSelectedCourseId(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedCourseId(e.target.value);
+                    loadAssessmentsForCourse(e.target.value);
+                  }}
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-xs font-bold text-[#3E2D68] focus:outline-none"
                 >
                   {courses.map((c) => (
@@ -371,6 +453,15 @@ export default function StudentAssessmentExamRoom() {
             </div>
 
             <div className="flex items-center space-x-3">
+              {secondsLeft !== null && (
+                <Badge
+                  variant={secondsLeft < 300 ? 'coral' : 'outline'}
+                  className="text-xs font-mono font-bold flex items-center space-x-1"
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{formatTimer(secondsLeft)}</span>
+                </Badge>
+              )}
               <Badge variant="secondary" className="text-xs font-bold text-[#3E2D68]">
                 Question {currentIndex + 1} of {questions.length}
               </Badge>

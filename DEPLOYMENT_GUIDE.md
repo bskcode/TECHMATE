@@ -78,3 +78,4 @@ services:
 - **Cold Starts**: Render free tier instances spin down after 15 minutes of inactivity. The first request after a sleep period may take 45–60 seconds to wake up.
 - **Live Examinations Recommendation**: For live classroom exams, we recommend upgrading to a Render **Starter or Standard instance ($7/month)** to ensure always-on availability with zero cold starts during student testing.
 - **Storage Persistence**: Render's local container filesystem is ephemeral. All permanent documents and data are stored in Supabase PostgreSQL and Supabase Storage.
+

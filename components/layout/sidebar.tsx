@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -25,6 +25,16 @@ interface SidebarProps {
 
 export function Sidebar({ currentRole }: SidebarProps) {
   const pathname = usePathname();
+  const [aiStatus, setAiStatus] = useState<{ provider: string; model: string; configured: boolean } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/health')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ai) setAiStatus(d.ai);
+      })
+      .catch(() => {});
+  }, []);
 
   const facultyNav = [
     { label: 'Dashboard', href: '/faculty', icon: LayoutDashboard },
@@ -96,16 +106,21 @@ export function Sidebar({ currentRole }: SidebarProps) {
         </nav>
       </div>
 
-      {/* Decorative Bottom Box */}
+      {/* Live AI Engine Status Box */}
       <div className="p-4 mx-4 mb-4 rounded-2xl bg-gradient-to-br from-[#4E3982] to-[#5C4596] border border-[#6850A4] text-xs text-white">
         <div className="flex items-center space-x-2 mb-1">
           <Sparkles className="w-4 h-4 text-amber-300" />
-          <span className="font-bold text-amber-200">Groq Engine Active</span>
+          <span className="font-bold text-amber-200">
+            {aiStatus?.configured ? 'Groq Engine Active' : 'Grounded Engine Ready'}
+          </span>
         </div>
         <p className="text-[11px] text-[#DDD6FE] leading-relaxed">
-          Pre-generated Bloom question packages & 2-hint progressive exams enabled.
+          {aiStatus?.configured
+            ? `Model: ${aiStatus.model} · 2-hint progressive exams enabled.`
+            : 'Deterministic grounded authoring & 2-hint progressive exams active.'}
         </p>
       </div>
     </aside>
   );
 }
+

@@ -45,6 +45,11 @@ export async function POST(
       },
     });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    const isClientErr =
+      err.message?.includes('Attempt not found') ||
+      err.message?.includes('Invalid attempt') ||
+      err.message?.includes('already');
+    return NextResponse.json({ success: false, error: err.message }, { status: isClientErr ? 400 : 500 });
   }
 }
+

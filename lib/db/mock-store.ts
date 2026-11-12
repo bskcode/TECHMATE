@@ -3,6 +3,8 @@
 // Provides 100% complete seed state with real data matching 003_seed_data.sql
 // ====================================================================
 
+import fs from 'fs';
+import path from 'path';
 import {
   Profile,
   Course,
@@ -52,7 +54,74 @@ class MemoryDatabase {
   public progress_reports: ProgressReport[] = [];
 
   constructor() {
-    this.seedInitialData();
+    if (!this.loadFromDisk()) {
+      this.seedInitialData();
+      this.saveToDisk();
+    }
+  }
+
+  private getDbFilePath(): string {
+    return path.join(process.cwd(), '.data', 'adaptivelearn-db.json');
+  }
+
+  public loadFromDisk(): boolean {
+    try {
+      const filePath = this.getDbFilePath();
+      if (!fs.existsSync(filePath)) return false;
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      const data = JSON.parse(raw);
+      const keys: (keyof MemoryDatabase)[] = [
+        'profiles', 'courses', 'enrollments', 'modules', 'course_outcomes',
+        'learning_materials', 'assessments', 'questions', 'question_answer_keys',
+        'question_rubrics', 'question_hints', 'attempts', 'responses', 'evaluations',
+        'hint_events', 'trait_scores', 'interventions', 'intervention_materials',
+        'practice_questions', 'practice_attempts', 'progress_reports',
+      ];
+      for (const k of keys) {
+        if (Array.isArray(data[k])) {
+          (this as any)[k] = data[k];
+        }
+      }
+      return this.profiles.length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  public saveToDisk(): void {
+    try {
+      const filePath = this.getDbFilePath();
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      const snapshot = {
+        profiles: this.profiles,
+        courses: this.courses,
+        enrollments: this.enrollments,
+        modules: this.modules,
+        course_outcomes: this.course_outcomes,
+        learning_materials: this.learning_materials,
+        assessments: this.assessments,
+        questions: this.questions,
+        question_answer_keys: this.question_answer_keys,
+        question_rubrics: this.question_rubrics,
+        question_hints: this.question_hints,
+        attempts: this.attempts,
+        responses: this.responses,
+        evaluations: this.evaluations,
+        hint_events: this.hint_events,
+        trait_scores: this.trait_scores,
+        interventions: this.interventions,
+        intervention_materials: this.intervention_materials,
+        practice_questions: this.practice_questions,
+        practice_attempts: this.practice_attempts,
+        progress_reports: this.progress_reports,
+      };
+      fs.writeFileSync(filePath, JSON.stringify(snapshot), 'utf-8');
+    } catch {
+      // Non-fatal in read-only environments
+    }
   }
 
   private seedInitialData() {
@@ -97,7 +166,7 @@ class MemoryDatabase {
     ];
 
     studentNames.forEach((name, i) => {
-      const idx = String(i + 1).padStart(3, '0');
+      const idx = String(101 + i).padStart(3, '0');
       this.profiles.push({
         id: `00000000-0000-0000-0000-000000000${idx}`,
         email: `student${i + 1}@adaptivelearn.ai`,
@@ -642,3 +711,4 @@ Where $h^*(n)$ is the true shortest cost from node $n$ to the goal.
 const globalForDb = globalThis as unknown as { mockDb: MemoryDatabase };
 export const mockDb = globalForDb.mockDb || new MemoryDatabase();
 if (process.env.NODE_ENV !== 'production') globalForDb.mockDb = mockDb;
+

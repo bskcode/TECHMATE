@@ -469,3 +469,4 @@ INSERT INTO public.progress_reports (
     '{"remembering": 2, "understanding": 2, "application": 2, "analysis": 2, "creativity": 2, "evaluation": 2}'::jsonb,
     'Branden achieved exceptional improvement after completing the targeted remediation package in State-Space Search and Heuristics. Analysis increased by +45.0 percentage points, Creativity improved by +60.0 pp, and Evaluation improved by +30.0 pp.'
 ) ON CONFLICT (id) DO NOTHING;
+

@@ -96,7 +96,7 @@ export interface LearningMaterial {
   uploader_id: string;
   filename: string;
   storage_path: string;
-  file_type: 'pdf' | 'docx' | 'pptx';
+  file_type: 'pdf' | 'docx' | 'pptx' | 'txt' | 'md';
   file_size_bytes: number;
   extracted_text?: string;
   character_count: number;
@@ -253,6 +253,7 @@ export interface Intervention {
   approved_at?: string;
   released_at?: string;
   created_at: string;
+  completed_checklist_items?: number[];
   student?: Profile;
   material?: InterventionMaterial;
   practice_questions?: PracticeQuestion[];
@@ -342,3 +343,4 @@ export interface QuestionPackage {
   numeric_tolerance?: number;
   source_reference?: string;
 }
+

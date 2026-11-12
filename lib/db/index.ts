@@ -77,6 +77,7 @@ export const db = {
       created_at: new Date().toISOString(),
     };
     mockDb.courses.unshift(newCourse);
+    mockDb.saveToDisk();
     return newCourse;
   },
 
@@ -102,6 +103,7 @@ export const db = {
       status: 'enrolled',
       enrolled_at: new Date().toISOString(),
     });
+    mockDb.saveToDisk();
 
     return { success: true, message: `Successfully enrolled in ${course.code}: ${course.title}`, course };
   },
@@ -131,7 +133,16 @@ export const db = {
       created_at: new Date().toISOString(),
     };
     mockDb.modules.push(newModule);
+    mockDb.saveToDisk();
     return newModule;
+  },
+
+  deleteModule(id: string): boolean {
+    const idx = mockDb.modules.findIndex((m) => m.id === id);
+    if (idx < 0) return false;
+    mockDb.modules.splice(idx, 1);
+    mockDb.saveToDisk();
+    return true;
   },
 
   getCourseOutcomes(courseId: string): CourseOutcome[] {
@@ -145,7 +156,16 @@ export const db = {
       created_at: new Date().toISOString(),
     };
     mockDb.course_outcomes.push(newOutcome);
+    mockDb.saveToDisk();
     return newOutcome;
+  },
+
+  deleteCourseOutcome(id: string): boolean {
+    const idx = mockDb.course_outcomes.findIndex((co) => co.id === id);
+    if (idx < 0) return false;
+    mockDb.course_outcomes.splice(idx, 1);
+    mockDb.saveToDisk();
+    return true;
   },
 
   // ------------------------------------------------------------------
@@ -166,14 +186,20 @@ export const db = {
       created_at: new Date().toISOString(),
     };
     mockDb.learning_materials.push(newMat);
+    mockDb.saveToDisk();
     return newMat;
+  },
+
+  getMaterial(id: string): LearningMaterial | undefined {
+    return mockDb.learning_materials.find((m) => m.id === id);
   },
 
   updateMaterialStatus(id: string, status: 'approved' | 'rejected', reason?: string): LearningMaterial | undefined {
     const mat = mockDb.learning_materials.find((m) => m.id === id);
     if (!mat) return undefined;
     mat.approval_status = status;
-    if (reason) mat.rejection_reason = reason;
+    if (reason !== undefined) mat.rejection_reason = reason;
+    mockDb.saveToDisk();
     return mat;
   },
 
@@ -181,6 +207,7 @@ export const db = {
     const index = mockDb.learning_materials.findIndex((m) => m.id === id);
     if (index >= 0) {
       mockDb.learning_materials.splice(index, 1);
+      mockDb.saveToDisk();
       return true;
     }
     return false;
@@ -217,6 +244,7 @@ export const db = {
       created_at: new Date().toISOString(),
     };
     mockDb.assessments.push(newAssessment);
+    mockDb.saveToDisk();
     return newAssessment;
   },
 
@@ -225,6 +253,7 @@ export const db = {
     if (!assessment) return undefined;
     assessment.status = 'published';
     assessment.published_at = new Date().toISOString();
+    mockDb.saveToDisk();
     return assessment;
   },
 
@@ -351,6 +380,7 @@ export const db = {
       }
     );
 
+    mockDb.saveToDisk();
     return newQuestion;
   },
 
@@ -358,32 +388,73 @@ export const db = {
     const q = mockDb.questions.find((item) => item.id === id);
     if (!q) return undefined;
 
-    if (updates.question_text) q.question_text = updates.question_text;
-    if (updates.options) q.options = updates.options;
+    if (updates.question_text !== undefined) q.question_text = updates.question_text;
+    if (updates.question_type !== undefined) q.question_type = updates.question_type;
+    if (updates.options !== undefined) q.options = updates.options;
     if (updates.max_marks !== undefined) q.max_marks = updates.max_marks;
-    if (updates.primary_trait) q.primary_trait = updates.primary_trait;
-    if (updates.difficulty) q.difficulty = updates.difficulty;
-    if (updates.approval_status) q.approval_status = updates.approval_status;
+    if (updates.primary_trait !== undefined) q.primary_trait = updates.primary_trait;
+    if (updates.secondary_trait !== undefined) q.secondary_trait = updates.secondary_trait;
+    if (updates.difficulty !== undefined) q.difficulty = updates.difficulty;
+    if (updates.approval_status !== undefined) q.approval_status = updates.approval_status;
+    if (updates.source_reference !== undefined) q.source_reference = updates.source_reference;
 
     // Update answer key
     if (updates.answer_key) {
       const ak = mockDb.question_answer_keys.find((k) => k.question_id === id);
       if (ak) {
         Object.assign(ak, updates.answer_key);
+      } else {
+        mockDb.question_answer_keys.push({
+          id: crypto.randomUUID(),
+          question_id: id,
+          correct_answer: updates.answer_key.correct_answer ?? '',
+          accepted_variations: updates.answer_key.accepted_variations ?? [],
+          evaluation_method: updates.answer_key.evaluation_method ?? 'deterministic',
+          explanation: updates.answer_key.explanation,
+        });
       }
     }
 
     // Update hints
-    if (updates.hint_1) {
+    if (updates.hint_1 !== undefined) {
       const h1 = mockDb.question_hints.find((h) => h.question_id === id && h.hint_number === 1);
       if (h1) h1.hint_text = updates.hint_1;
+      else {
+        mockDb.question_hints.push({
+          id: crypto.randomUUID(),
+          question_id: id,
+          hint_number: 1,
+          hint_text: updates.hint_1,
+          penalty_percentage: 25.0,
+        });
+      }
     }
-    if (updates.hint_2) {
+    if (updates.hint_2 !== undefined) {
       const h2 = mockDb.question_hints.find((h) => h.question_id === id && h.hint_number === 2);
       if (h2) h2.hint_text = updates.hint_2;
+      else {
+        mockDb.question_hints.push({
+          id: crypto.randomUUID(),
+          question_id: id,
+          hint_number: 2,
+          hint_text: updates.hint_2,
+          penalty_percentage: 50.0,
+        });
+      }
     }
 
-    return q;
+    mockDb.saveToDisk();
+    return this.getQuestion(id, true);
+  },
+
+  deleteQuestion(id: string): boolean {
+    const idx = mockDb.questions.findIndex((q) => q.id === id);
+    if (idx < 0) return false;
+    mockDb.questions.splice(idx, 1);
+    mockDb.question_answer_keys = mockDb.question_answer_keys.filter((ak) => ak.question_id !== id);
+    mockDb.question_hints = mockDb.question_hints.filter((h) => h.question_id !== id);
+    mockDb.saveToDisk();
+    return true;
   },
 
   // ------------------------------------------------------------------
@@ -409,6 +480,7 @@ export const db = {
       is_final: false,
     };
     mockDb.attempts.push(newAttempt);
+    mockDb.saveToDisk();
     return newAttempt;
   },
 
@@ -424,8 +496,15 @@ export const db = {
     return mockDb.responses.filter((r) => r.attempt_id === attemptId);
   },
 
-  getHintEventsForAttempt(attemptId: string): HintEvent[] {
-    return mockDb.hint_events.filter((h) => h.attempt_id === attemptId);
+  getHintEventsForAttempt(attemptId: string): Array<HintEvent & { hint_text?: string }> {
+    return mockDb.hint_events
+      .filter((h) => h.attempt_id === attemptId)
+      .map((h) => {
+        const hint = mockDb.question_hints.find(
+          (qh) => qh.question_id === h.question_id && qh.hint_number === h.hint_number
+        );
+        return { ...h, hint_text: hint?.hint_text };
+      });
   },
 
   /**
@@ -438,6 +517,23 @@ export const db = {
     responseNumber: 1 | 2 | 3,
     studentAnswer: string
   ): ProcessSubmissionResult {
+    const attempt = mockDb.attempts.find((a) => a.id === attemptId);
+    if (!attempt) throw new Error('Attempt not found');
+    if (attempt.status !== 'in_progress') {
+      throw new Error('This attempt has already been finalized and cannot accept new submissions.');
+    }
+
+    const existingResponses = mockDb.responses.filter(
+      (r) => r.attempt_id === attemptId && r.question_id === questionId
+    );
+    const expectedNext = (existingResponses.length + 1) as number;
+    if (existingResponses.some((r) => r.is_correct)) {
+      throw new Error('Question is already solved and finalized.');
+    }
+    if (responseNumber !== expectedNext) {
+      throw new Error(`Invalid attempt sequence: expected attempt ${expectedNext}, received ${responseNumber}.`);
+    }
+
     const question = mockDb.questions.find((q) => q.id === questionId);
     if (!question) throw new Error('Question not found');
 
@@ -483,6 +579,7 @@ export const db = {
       });
     }
 
+    mockDb.saveToDisk();
     return result;
   },
 
@@ -550,6 +647,7 @@ export const db = {
       });
     }
 
+    mockDb.saveToDisk();
     return attempt;
   },
 
@@ -589,33 +687,82 @@ export const db = {
       classAverage: traitAverages[t].count > 0 ? Math.round(traitAverages[t].total / traitAverages[t].count) : 0,
     }));
 
-    // Weakest trait identifying
-    const weakest = [...traitData].sort((a, b) => a.classAverage - b.classAverage)[0];
+    // Weakest trait identifying (only among traits that have evidence, or lowest overall)
+    const scoredTraits = traitData.filter((t) => traitAverages[t.key].count > 0);
+    const weakest = [...(scoredTraits.length > 0 ? scoredTraits : traitData)].sort(
+      (a, b) => a.classAverage - b.classAverage
+    )[0];
 
-    // Students needing intervention (<60% average or <60% on any trait)
-    const studentsNeedingIntervention = mockDb.profiles
-      .filter((p) => p.role === 'student')
-      .map((s) => {
-        const studentScores = mockDb.trait_scores.filter(
-          (ts) => ts.student_id === s.id && ts.course_id === courseId
-        );
-        const weakTraits = studentScores.filter((ts) => ts.score_percentage < 60).map((ts) => ts.trait);
-        const latestAttempt = mockDb.attempts.find((a) => a.student_id === s.id && a.status === 'evaluated');
-        return {
-          student: s,
-          weakTraits,
-          latestScore: latestAttempt?.percentage ?? 0,
-          needsHelp: weakTraits.length > 0 || (latestAttempt ? latestAttempt.percentage < 60 : false),
-        };
-      })
-      .filter((item) => item.needsHelp);
+    // Enrolled students in this course
+    const enrolledStudentIds = new Set(
+      mockDb.enrollments
+        .filter((e) => e.course_id === courseId && e.status === 'enrolled')
+        .map((e) => e.student_id)
+    );
+    const courseAssessmentIds = new Set(
+      mockDb.assessments.filter((a) => a.course_id === courseId).map((a) => a.id)
+    );
+
+    const enrolledStudents = mockDb.profiles.filter(
+      (p) => p.role === 'student' && enrolledStudentIds.has(p.id)
+    );
+
+    // Student performance summaries
+    const studentPerformances = enrolledStudents.map((s) => {
+      const studentScores = mockDb.trait_scores.filter(
+        (ts) => ts.student_id === s.id && ts.course_id === courseId
+      );
+      const weakTraits = studentScores.filter((ts) => ts.score_percentage < 60).map((ts) => ts.trait);
+      const studentAttempts = mockDb.attempts
+        .filter(
+          (a) =>
+            a.student_id === s.id &&
+            a.status === 'evaluated' &&
+            courseAssessmentIds.has(a.assessment_id)
+        )
+        .sort((a, b) => new Date(b.submitted_at || b.started_at).getTime() - new Date(a.submitted_at || a.started_at).getTime());
+      const latestAttempt = studentAttempts[0];
+      return {
+        student: s,
+        weakTraits,
+        latestScore: latestAttempt?.percentage ?? 0,
+        hasAttempt: Boolean(latestAttempt),
+        needsHelp: weakTraits.length > 0 || (latestAttempt ? latestAttempt.percentage < 60 : false),
+      };
+    });
+
+    const studentsNeedingIntervention = studentPerformances.filter((item) => item.needsHelp);
+
+    const topPerformers = studentPerformances
+      .filter((item) => item.hasAttempt)
+      .sort((a, b) => b.latestScore - a.latestScore)
+      .slice(0, 3)
+      .map((item) => ({
+        student: item.student,
+        score: item.latestScore,
+      }));
+
+    const evaluatedAttempts = courseAttempts.filter((a) => a.status === 'evaluated');
+    const classMastery =
+      evaluatedAttempts.length > 0
+        ? Math.round((evaluatedAttempts.reduce((sum, a) => sum + a.percentage, 0) / evaluatedAttempts.length) * 10) / 10
+        : 0;
+
+    const courseReports = mockDb.progress_reports.filter((r) => r.course_id === courseId);
+    const avgGrowth =
+      courseReports.length > 0
+        ? Math.round((courseReports.reduce((sum, r) => sum + r.score_improvement, 0) / courseReports.length) * 10) / 10
+        : 0;
 
     return {
       studentCount,
       totalAttempts: courseAttempts.length,
+      classMastery,
+      avgGrowth,
       traitData,
       weakestTrait: weakest?.trait ?? 'None',
       studentsNeedingIntervention,
+      topPerformers,
     };
   },
 
@@ -676,6 +823,7 @@ export const db = {
       });
     });
 
+    mockDb.saveToDisk();
     return newIntervention;
   },
 
@@ -690,7 +838,26 @@ export const db = {
     if (status === 'released') {
       item.released_at = new Date().toISOString();
     }
-    return item;
+    mockDb.saveToDisk();
+    return this.getIntervention(id);
+  },
+
+  updateIntervention(
+    id: string,
+    updates: { faculty_notes?: string; completed_checklist_items?: number[] }
+  ): Intervention | undefined {
+    const item = mockDb.interventions.find((i) => i.id === id);
+    if (!item) return undefined;
+    if (updates.faculty_notes !== undefined) item.faculty_notes = updates.faculty_notes;
+    if (updates.completed_checklist_items !== undefined) {
+      item.completed_checklist_items = updates.completed_checklist_items;
+    }
+    mockDb.saveToDisk();
+    return this.getIntervention(id);
+  },
+
+  getPracticeAttempts(studentId: string): PracticeAttempt[] {
+    return mockDb.practice_attempts.filter((pa) => pa.student_id === studentId);
   },
 
   recordPracticeAttempt(questionId: string, studentId: string, answer: string): { is_correct: boolean; explanation: string } {
@@ -709,13 +876,14 @@ export const db = {
       attempted_at: new Date().toISOString(),
     });
 
+    mockDb.saveToDisk();
     return { is_correct, explanation: question.explanation };
   },
 
   // ------------------------------------------------------------------
   // PROGRESS REPORTS (BASELINE VS FINAL COMPARISONS)
   // ------------------------------------------------------------------
-  getProgressReport(studentId: string, courseId: string): ProgressReport | undefined {
+  getProgressReport(studentId: string, courseId: string): (ProgressReport & { trait_details?: Record<string, { baseline: number; final: number; delta: number; marks_earned: number; marks_possible: number; evidence_count: number; confidence: string }> }) | undefined {
     const report = mockDb.progress_reports.find(
       (r) => r.student_id === studentId && r.course_id === courseId
     );
@@ -725,7 +893,33 @@ export const db = {
     const baseline = mockDb.assessments.find((a) => a.id === report.baseline_assessment_id);
     const final = mockDb.assessments.find((a) => a.id === report.final_assessment_id);
 
-    return { ...report, student, baseline_assessment: baseline, final_assessment: final };
+    const baselineTraits = mockDb.trait_scores.filter(
+      (ts) => ts.student_id === studentId && ts.assessment_id === report.baseline_assessment_id
+    );
+    const finalTraits = mockDb.trait_scores.filter(
+      (ts) => ts.student_id === studentId && ts.assessment_id === report.final_assessment_id
+    );
+
+    const trait_details: Record<string, { baseline: number; final: number; delta: number; marks_earned: number; marks_possible: number; evidence_count: number; confidence: string }> = {};
+    BLOOM_TRAITS.forEach((t) => {
+      const b = baselineTraits.find((s) => s.trait === t);
+      const f = finalTraits.find((s) => s.trait === t);
+      const latest = f || b;
+      const bPct = b?.score_percentage ?? 0;
+      const fPct = f?.score_percentage ?? bPct;
+      const ev = (report.evidence_counts as any)?.[t] ?? ((b?.evidence_count ?? 0) + (f?.evidence_count ?? 0));
+      trait_details[t] = {
+        baseline: Math.round(bPct * 10) / 10,
+        final: Math.round(fPct * 10) / 10,
+        delta: (report.trait_improvements as any)?.[t] ?? Math.round((fPct - bPct) * 10) / 10,
+        marks_earned: latest?.marks_earned ?? 0,
+        marks_possible: latest?.marks_possible ?? 0,
+        evidence_count: ev,
+        confidence: latest?.confidence ?? (ev >= 3 ? 'high' : ev >= 2 ? 'moderate' : 'low'),
+      };
+    });
+
+    return { ...report, student, baseline_assessment: baseline, final_assessment: final, trait_details };
   },
 
   generateProgressReport(studentId: string, courseId: string, baselineId: string, finalId: string): ProgressReport {
@@ -736,25 +930,45 @@ export const db = {
       (ts) => ts.student_id === studentId && ts.assessment_id === finalId
     );
 
-    const baselineAttempt = mockDb.attempts.find(
-      (a) => a.student_id === studentId && a.assessment_id === baselineId && a.status === 'evaluated'
-    );
-    const finalAttempt = mockDb.attempts.find(
-      (a) => a.student_id === studentId && a.assessment_id === finalId && a.status === 'evaluated'
-    );
+    const baselineAttempt = mockDb.attempts
+      .filter((a) => a.student_id === studentId && a.assessment_id === baselineId && a.status === 'evaluated')
+      .sort((a, b) => new Date(b.submitted_at || b.started_at).getTime() - new Date(a.submitted_at || a.started_at).getTime())[0];
+    const finalAttempt = mockDb.attempts
+      .filter((a) => a.student_id === studentId && a.assessment_id === finalId && a.status === 'evaluated')
+      .sort((a, b) => new Date(b.submitted_at || b.started_at).getTime() - new Date(a.submitted_at || a.started_at).getTime())[0];
 
-    const baseScore = baselineAttempt?.percentage ?? 70.0;
-    const finScore = finalAttempt?.percentage ?? 92.5;
+    const baseScore = baselineAttempt?.percentage ?? 0;
+    const finScore = finalAttempt?.percentage ?? baseScore;
 
     const trait_improvements: Record<string, number> = {};
     const evidence_counts: Record<string, number> = {};
 
     BLOOM_TRAITS.forEach((t) => {
-      const b = baselineScores.find((s) => s.trait === t)?.score_percentage ?? 50.0;
-      const f = finalScores.find((s) => s.trait === t)?.score_percentage ?? 90.0;
+      const bObj = baselineScores.find((s) => s.trait === t);
+      const fObj = finalScores.find((s) => s.trait === t);
+      const b = bObj?.score_percentage ?? 0;
+      const f = fObj?.score_percentage ?? b;
       trait_improvements[t] = Math.round((f - b) * 100) / 100;
-      evidence_counts[t] = 2;
+      evidence_counts[t] = (bObj?.evidence_count ?? 0) + (fObj?.evidence_count ?? 0);
     });
+
+    const delta = Math.round((finScore - baseScore) * 10) / 10;
+    const topGains = Object.entries(trait_improvements)
+      .filter(([, val]) => val > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([k]) => k.charAt(0).toUpperCase() + k.slice(1));
+
+    const studentName = mockDb.profiles.find((p) => p.id === studentId)?.full_name ?? 'Student';
+    let narrative: string;
+    if (!baselineAttempt && !finalAttempt) {
+      narrative = `${studentName} has not yet completed an evaluated assessment in this course.`;
+    } else if (!finalAttempt) {
+      narrative = `${studentName} completed the baseline diagnostic assessment with ${baseScore}%. Final assessment comparison will update once the final exam is evaluated.`;
+    } else {
+      const gainStr = topGains.length > 0 ? ` with the strongest gains in ${topGains.join(' and ')}` : '';
+      narrative = `${studentName} demonstrated ${delta >= 0 ? `+${delta}` : delta} percentage points overall change (${baseScore}% → ${finScore}%)${gainStr}.`;
+    }
 
     const report: ProgressReport = {
       id: crypto.randomUUID(),
@@ -767,11 +981,140 @@ export const db = {
       score_improvement: Math.round((finScore - baseScore) * 100) / 100,
       trait_improvements: trait_improvements as any,
       evidence_counts: evidence_counts as any,
-      summary_narrative: `Student demonstrated significant cognitive growth of +${Math.round((finScore - baseScore) * 10) / 10} percentage points across all 6 Bloom dimensions, with the strongest gains in Analysis and Creativity after completing the personalized remediation package.`,
+      summary_narrative: narrative,
       generated_at: new Date().toISOString(),
     };
 
+    mockDb.progress_reports = mockDb.progress_reports.filter(
+      (r) => !(r.student_id === studentId && r.course_id === courseId)
+    );
     mockDb.progress_reports.push(report);
-    return report;
+    mockDb.saveToDisk();
+    return this.getProgressReport(studentId, courseId)!;
+  },
+
+  getNotifications(userId: string, role: 'faculty' | 'student') {
+    const items: Array<{ id: string; title: string; detail: string; time: string; href: string; type: 'info' | 'warning' | 'success' }> = [];
+
+    if (role === 'faculty') {
+      const pendingInterventions = mockDb.interventions.filter((i) => i.status === 'pending_approval' || i.status === 'generated');
+      pendingInterventions.slice(0, 3).forEach((i) => {
+        const student = mockDb.profiles.find((p) => p.id === i.student_id);
+        items.push({
+          id: `int-${i.id}`,
+          title: `Intervention Pending: ${student?.full_name ?? 'Student'}`,
+          detail: `Weak traits: ${i.weak_traits.join(', ')}`,
+          time: i.created_at,
+          href: '/faculty/interventions',
+          type: 'warning',
+        });
+      });
+
+      const recentAttempts = [...mockDb.attempts]
+        .filter((a) => a.status === 'evaluated')
+        .sort((a, b) => new Date(b.submitted_at || b.started_at).getTime() - new Date(a.submitted_at || a.started_at).getTime())
+        .slice(0, 4);
+      recentAttempts.forEach((a) => {
+        const student = mockDb.profiles.find((p) => p.id === a.student_id);
+        const assessment = mockDb.assessments.find((as) => as.id === a.assessment_id);
+        items.push({
+          id: `att-${a.id}`,
+          title: `${student?.full_name ?? 'Student'} completed ${assessment?.title ?? 'Assessment'}`,
+          detail: `Score: ${a.percentage}% (${a.total_score}/${a.max_score})`,
+          time: a.submitted_at || a.started_at,
+          href: '/faculty/analytics',
+          type: a.percentage >= 60 ? 'success' : 'warning',
+        });
+      });
+    } else {
+      const released = mockDb.interventions.filter((i) => i.student_id === userId && i.status === 'released');
+      released.forEach((i) => {
+        items.push({
+          id: `rel-${i.id}`,
+          title: 'Personalized Study Plan Released',
+          detail: `Focus areas: ${i.weak_traits.join(', ')}`,
+          time: i.released_at || i.created_at,
+          href: '/student/interventions',
+          type: 'info',
+        });
+      });
+
+      const enrolledIds = new Set(
+        mockDb.enrollments.filter((e) => e.student_id === userId && e.status === 'enrolled').map((e) => e.course_id)
+      );
+      const published = mockDb.assessments.filter((a) => enrolledIds.has(a.course_id) && a.status === 'published');
+      published.slice(0, 4).forEach((a) => {
+        items.push({
+          id: `pub-${a.id}`,
+          title: `Assessment Available: ${a.title}`,
+          detail: `${a.time_limit_minutes} mins · ${a.max_marks} marks`,
+          time: a.published_at || a.created_at,
+          href: '/student/assessments',
+          type: 'info',
+        });
+      });
+    }
+
+    return items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 8);
+  },
+
+  searchPlatform(query: string, role: 'faculty' | 'student') {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+
+    const results: Array<{ id: string; category: string; title: string; subtitle: string; href: string }> = [];
+
+    mockDb.courses.forEach((c) => {
+      if (c.code.toLowerCase().includes(q) || c.title.toLowerCase().includes(q)) {
+        results.push({
+          id: `c-${c.id}`,
+          category: 'Course',
+          title: `${c.code}: ${c.title}`,
+          subtitle: c.term,
+          href: role === 'faculty' ? '/faculty/courses' : '/student/courses',
+        });
+      }
+    });
+
+    mockDb.course_outcomes.forEach((co) => {
+      if (co.code.toLowerCase().includes(q) || co.description.toLowerCase().includes(q)) {
+        results.push({
+          id: `co-${co.id}`,
+          category: 'Outcome',
+          title: `${co.code}`,
+          subtitle: co.description.slice(0, 80),
+          href: role === 'faculty' ? '/faculty/courses' : '/student/courses',
+        });
+      }
+    });
+
+    mockDb.assessments.forEach((a) => {
+      if (role === 'student' && a.status !== 'published') return;
+      if (a.title.toLowerCase().includes(q) || (a.description || '').toLowerCase().includes(q)) {
+        results.push({
+          id: `a-${a.id}`,
+          category: 'Assessment',
+          title: a.title,
+          subtitle: `${a.assessment_type} · ${a.max_marks} marks`,
+          href: role === 'faculty' ? '/faculty/assessments' : '/student/assessments',
+        });
+      }
+    });
+
+    mockDb.learning_materials.forEach((m) => {
+      if (role === 'student' && m.approval_status !== 'approved') return;
+      if (m.filename.toLowerCase().includes(q)) {
+        results.push({
+          id: `m-${m.id}`,
+          category: 'Material',
+          title: m.filename,
+          subtitle: `${m.character_count} chars · ${m.approval_status}`,
+          href: role === 'faculty' ? '/faculty/materials' : '/student/courses',
+        });
+      }
+    });
+
+    return results.slice(0, 10);
   },
 };
+

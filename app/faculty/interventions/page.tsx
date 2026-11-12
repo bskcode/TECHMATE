@@ -16,26 +16,35 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useApp } from '@/components/providers/app-provider';
 
 export default function FacultyInterventionsPage() {
+  const { getActiveUser, toast } = useApp();
+  const activeFaculty = getActiveUser('faculty');
+
   const [courses, setCourses] = useState<any[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [interventions, setInterventions] = useState<any[]>([]);
   const [selectedIntervention, setSelectedIntervention] = useState<any>(null);
+  const [facultyNotes, setFacultyNotes] = useState('');
   const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     async function loadCourses() {
-      const res = await fetch('/api/courses');
+      const res = await fetch(`/api/courses?userId=${activeFaculty.id}&role=faculty`);
       const data = await res.json();
       setCourses(data.courses || []);
       if (data.courses?.[0]) {
         setSelectedCourseId(data.courses[0].id);
         loadInterventions(data.courses[0].id);
+      } else {
+        setSelectedCourseId('');
+        setInterventions([]);
+        setSelectedIntervention(null);
       }
     }
     loadCourses();
-  }, []);
+  }, [activeFaculty.id]);
 
   async function loadInterventions(courseId: string) {
     const res = await fetch(`/api/interventions?courseId=${courseId}`);
@@ -43,6 +52,9 @@ export default function FacultyInterventionsPage() {
     setInterventions(data.interventions || []);
     if (data.interventions?.[0]) {
       loadInterventionDetails(data.interventions[0].id);
+    } else {
+      setSelectedIntervention(null);
+      setFacultyNotes('');
     }
   }
 
@@ -50,6 +62,7 @@ export default function FacultyInterventionsPage() {
     const res = await fetch(`/api/interventions/${id}`);
     const data = await res.json();
     setSelectedIntervention(data.intervention);
+    setFacultyNotes(data.intervention?.faculty_notes || '');
   }
 
   const handleUpdateStatus = async (status: 'approved' | 'rejected' | 'released') => {
@@ -61,17 +74,40 @@ export default function FacultyInterventionsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status,
-          faculty_id: '00000000-0000-0000-0000-000000000001',
+          faculty_id: activeFaculty.id,
+          faculty_notes: facultyNotes,
         }),
       });
 
       const data = await res.json();
       if (data.success) {
+        toast(`Intervention ${status}!`, 'success');
         await loadInterventions(selectedCourseId);
         await loadInterventionDetails(selectedIntervention.id);
+      } else {
+        toast(data.error || 'Failed to update intervention', 'error');
       }
     } catch (err: any) {
-      alert(`Error: ${err.message}`);
+      toast(`Error: ${err.message}`, 'error');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleSaveNotes = async () => {
+    if (!selectedIntervention) return;
+    setUpdating(true);
+    try {
+      const res = await fetch(`/api/interventions/${selectedIntervention.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ faculty_notes: facultyNotes }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast('Faculty notes saved.', 'success');
+        setSelectedIntervention(data.intervention);
+      }
     } finally {
       setUpdating(false);
     }
@@ -200,15 +236,27 @@ export default function FacultyInterventionsPage() {
                 {/* Faculty Approval Controls */}
                 <div className="flex items-center space-x-2">
                   {selectedIntervention.status !== 'released' && (
-                    <Button
-                      size="sm"
-                      disabled={updating}
-                      onClick={() => handleUpdateStatus('released')}
-                      className="rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center space-x-1.5 shadow-sm"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Approve & Release to Student</span>
-                    </Button>
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={updating}
+                        onClick={() => handleUpdateStatus('rejected')}
+                        className="rounded-xl text-xs font-bold border-rose-200 text-rose-600 hover:bg-rose-50 flex items-center space-x-1"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        <span>Reject</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={updating}
+                        onClick={() => handleUpdateStatus('released')}
+                        className="rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center space-x-1.5 shadow-sm"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Approve & Release</span>
+                      </Button>
+                    </>
                   )}
                   {selectedIntervention.status === 'released' && (
                     <Badge variant="emerald" className="text-xs font-bold py-1 px-3">
@@ -219,6 +267,28 @@ export default function FacultyInterventionsPage() {
               </CardHeader>
 
               <CardContent className="p-6 space-y-6">
+                {/* Faculty Notes */}
+                <div className="p-4 bg-[#F4F5FA] rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#3E2D68]">Instructor Guidance Notes</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={updating}
+                      onClick={handleSaveNotes}
+                      className="h-7 rounded-lg text-[11px] font-bold bg-white"
+                    >
+                      Save Notes
+                    </Button>
+                  </div>
+                  <textarea
+                    rows={2}
+                    placeholder="Add personalized feedback or study instructions for this student..."
+                    value={facultyNotes}
+                    onChange={(e) => setFacultyNotes(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs focus:outline-none focus:border-[#3E2D68]"
+                  />
+                </div>
                 {/* Learning Gap Summary */}
                 <div className="p-4 bg-amber-50/70 rounded-2xl border border-amber-200/60">
                   <div className="flex items-center space-x-2 text-amber-900 font-bold text-xs mb-1">
@@ -302,3 +372,4 @@ export default function FacultyInterventionsPage() {
     </div>
   );
 }
+

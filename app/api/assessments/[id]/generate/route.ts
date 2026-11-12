@@ -51,9 +51,11 @@ export async function POST(
       difficulty,
     });
 
-    // Save generated packages into database
+    // Save generated packages into database after existing questions
+    const existingQuestions = db.getQuestions(params.id, true);
+    const startOrder = existingQuestions.length;
     const savedQuestions = questionPackages.map((pkg, idx) => {
-      return db.saveGeneratedQuestionPackage(params.id, pkg as any, idx + 1);
+      return db.saveGeneratedQuestionPackage(params.id, pkg as any, startOrder + idx + 1);
     });
 
     // Return the full question list with answer keys for faculty review
@@ -68,3 +70,4 @@ export async function POST(
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
+
