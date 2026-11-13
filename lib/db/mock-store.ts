@@ -333,20 +333,21 @@ A heuristic is admissible if h(n) <= h*(n) for all n.`,
       created_at: new Date().toISOString(),
     });
 
-    // 8. Assessments
+    // 8. Module-wise Assessments (Diagnostic & Progressive for each module)
     this.assessments.push(
+      // Module 1 Assessments
       {
         id: '55555555-5555-5555-5555-555555555551',
         course_id: '11111111-1111-1111-1111-111111111111',
         module_id: '22222222-2222-2222-2222-222222222221',
-        title: 'CS101 Diagnostic Assessment: Algorithmic Thinking & Logic',
-        description: 'Initial cognitive baseline measuring all 6 Bloom dimensions: Remembering, Understanding, Application, Analysis, Creativity, and Evaluation.',
+        title: 'Module 1: Diagnostic Assessment (Algorithms & Complexity)',
+        description: 'Module baseline diagnostic measuring Bloom dimensions. Strictly no hints provided to gauge independent foundation.',
         assessment_type: 'diagnostic',
         status: 'published',
-        time_limit_minutes: 30,
+        time_limit_minutes: 25,
         max_marks: 30,
         passing_marks: 15,
-        progressive_hints_enabled: true,
+        progressive_hints_enabled: false,
         version: 1,
         created_at: new Date().toISOString(),
         published_at: new Date().toISOString(),
@@ -355,11 +356,77 @@ A heuristic is admissible if h(n) <= h*(n) for all n.`,
         id: '55555555-5555-5555-5555-555555555552',
         course_id: '11111111-1111-1111-1111-111111111111',
         module_id: '22222222-2222-2222-2222-222222222221',
-        title: 'CS101 Final Examination: Comprehensive Trait Mastery',
-        description: 'Final summative examination evaluating all 6 Bloom traits with the progressive 2-hint assistance mechanism.',
-        assessment_type: 'final',
+        title: 'Module 1: Progressive Assessment (Algorithms & Complexity)',
+        description: 'Formative mastery assessment with up to two progressive hints unlocked on wrong answers.',
+        assessment_type: 'progressive',
         status: 'published',
-        time_limit_minutes: 45,
+        time_limit_minutes: 35,
+        max_marks: 30,
+        passing_marks: 15,
+        progressive_hints_enabled: true,
+        version: 1,
+        created_at: new Date().toISOString(),
+        published_at: new Date().toISOString(),
+      },
+      // Module 2 Assessments
+      {
+        id: '55555555-5555-5555-5555-555555555553',
+        course_id: '11111111-1111-1111-1111-111111111111',
+        module_id: '22222222-2222-2222-2222-222222222222',
+        title: 'Module 2: Diagnostic Assessment (Discrete Logic & Boolean Algebra)',
+        description: 'Logic baseline evaluation without hints to measure initial Boolean mastery.',
+        assessment_type: 'diagnostic',
+        status: 'published',
+        time_limit_minutes: 25,
+        max_marks: 30,
+        passing_marks: 15,
+        progressive_hints_enabled: false,
+        version: 1,
+        created_at: new Date().toISOString(),
+        published_at: new Date().toISOString(),
+      },
+      {
+        id: '55555555-5555-5555-5555-555555555554',
+        course_id: '11111111-1111-1111-1111-111111111111',
+        module_id: '22222222-2222-2222-2222-222222222222',
+        title: 'Module 2: Progressive Assessment (Discrete Logic & Boolean Algebra)',
+        description: 'Progressive problem solving with up to 2 hints enabled upon incorrect submissions.',
+        assessment_type: 'progressive',
+        status: 'published',
+        time_limit_minutes: 35,
+        max_marks: 30,
+        passing_marks: 15,
+        progressive_hints_enabled: true,
+        version: 1,
+        created_at: new Date().toISOString(),
+        published_at: new Date().toISOString(),
+      },
+      // Module 3 Assessments
+      {
+        id: '55555555-5555-5555-5555-555555555555',
+        course_id: '11111111-1111-1111-1111-111111111111',
+        module_id: '22222222-2222-2222-2222-222222222223',
+        title: 'Module 3: Diagnostic Assessment (AI & Search Strategies)',
+        description: 'State space search baseline assessment without hints.',
+        assessment_type: 'diagnostic',
+        status: 'published',
+        time_limit_minutes: 25,
+        max_marks: 30,
+        passing_marks: 15,
+        progressive_hints_enabled: false,
+        version: 1,
+        created_at: new Date().toISOString(),
+        published_at: new Date().toISOString(),
+      },
+      {
+        id: '55555555-5555-5555-5555-555555555556',
+        course_id: '11111111-1111-1111-1111-111111111111',
+        module_id: '22222222-2222-2222-2222-222222222223',
+        title: 'Module 3: Progressive Assessment (AI & Search Strategies)',
+        description: 'Heuristic and state space search evaluation with 2 progressive hints on wrong answers.',
+        assessment_type: 'progressive',
+        status: 'published',
+        time_limit_minutes: 35,
         max_marks: 30,
         passing_marks: 15,
         progressive_hints_enabled: true,
@@ -660,7 +727,13 @@ Where $h^*(n)$ is the true shortest cost from node $n$ to the goal.
       },
     ];
 
-    qList.forEach((q) => {
+    const progressiveQList = qList.map((q, idx) => ({
+      ...q,
+      id: `66666666-6666-6666-6666-66666666667${idx + 1}`,
+      assessment_id: '55555555-5555-5555-5555-555555555552',
+    }));
+
+    [...qList, ...progressiveQList].forEach((q) => {
       this.questions.push({
         id: q.id,
         assessment_id: q.assessment_id,
@@ -698,6 +771,53 @@ Where $h^*(n)$ is the true shortest cost from node $n$ to the goal.
         {
           id: `h2-${q.id}`,
           question_id: q.id,
+          hint_number: 2,
+          hint_text: q.hint_2,
+          penalty_percentage: 50.0,
+        }
+      );
+    });
+
+    // Also populate questions for Module 1 Progressive Assessment
+    qList.forEach((q, idx) => {
+      const progId = `66666666-6666-6666-6666-77777777777${idx + 1}`;
+      this.questions.push({
+        id: progId,
+        assessment_id: '55555555-5555-5555-5555-555555555552',
+        order_index: q.order_index,
+        question_text: q.question_text,
+        question_type: q.question_type,
+        options: q.options,
+        max_marks: q.max_marks,
+        primary_trait: q.primary_trait,
+        difficulty: q.difficulty,
+        approval_status: q.approval_status,
+        course_outcome_ids: q.course_outcome_ids,
+        grounding_material_ids: q.grounding_material_ids,
+        source_reference: q.source_reference,
+        created_at: q.created_at,
+      });
+
+      this.question_answer_keys.push({
+        id: `ak-${progId}`,
+        question_id: progId,
+        correct_answer: q.correct_answer,
+        accepted_variations: q.accepted_variations,
+        evaluation_method: 'deterministic',
+        explanation: q.explanation,
+      });
+
+      this.question_hints.push(
+        {
+          id: `h1-${progId}`,
+          question_id: progId,
+          hint_number: 1,
+          hint_text: q.hint_1,
+          penalty_percentage: 25.0,
+        },
+        {
+          id: `h2-${progId}`,
+          question_id: progId,
           hint_number: 2,
           hint_text: q.hint_2,
           penalty_percentage: 50.0,

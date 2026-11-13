@@ -21,7 +21,7 @@ export type QuestionType =
 
 export type DifficultyLevel = 'easy' | 'medium' | 'hard';
 
-export type AssessmentType = 'diagnostic' | 'module' | 'final';
+export type AssessmentType = 'diagnostic' | 'progressive' | 'module' | 'final';
 
 export type AssessmentStatus = 'draft' | 'pending_approval' | 'published' | 'archived';
 

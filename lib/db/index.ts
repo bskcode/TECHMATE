@@ -540,7 +540,9 @@ export const db = {
     const answerKey = mockDb.question_answer_keys.find((ak) => ak.question_id === questionId);
     if (!answerKey) throw new Error('Answer key not found');
 
-    const hints = mockDb.question_hints.filter((h) => h.question_id === questionId);
+    const assessment = mockDb.assessments.find((a) => a.id === attempt.assessment_id);
+    const isDiagnostic = assessment?.assessment_type === 'diagnostic' || assessment?.progressive_hints_enabled === false;
+    const hints = isDiagnostic ? [] : mockDb.question_hints.filter((h) => h.question_id === questionId);
 
     // Run the progressive 2-hint state machine
     const result = processProgressiveSubmission({
@@ -551,6 +553,15 @@ export const db = {
       maxMarks: question.max_marks,
       hints,
     });
+
+    if (isDiagnostic) {
+      // Diagnostic assessment: Strictly NO hints permitted
+      result.unlocked_hint = undefined;
+      result.is_question_finalized = true;
+      if (!result.is_correct) {
+        result.feedback = 'Incorrect. (Diagnostic Assessment — hints are strictly disabled)';
+      }
+    }
 
     // Record response
     const responseId = crypto.randomUUID();

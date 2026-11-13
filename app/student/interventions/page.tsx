@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useApp } from '@/components/providers/app-provider';
+import { MarkdownView } from '@/components/ui/markdown-view';
 
 export default function StudentInterventionsPage() {
   const { getActiveUser } = useApp();
@@ -138,9 +139,7 @@ export default function StudentInterventionsPage() {
                   <BookOpen className="w-5 h-5 text-[#3E2D68]" />
                   <CardTitle className="text-base font-bold text-gray-900">Conceptual Walkthrough</CardTitle>
                 </div>
-                <div className="text-xs text-gray-800 leading-relaxed font-sans whitespace-pre-wrap bg-gray-50/50 p-4 rounded-2xl">
-                  {selectedIntervention.material?.explanation_markdown}
-                </div>
+                <MarkdownView content={selectedIntervention.material?.explanation_markdown} />
               </Card>
 
               {/* Worked Examples */}

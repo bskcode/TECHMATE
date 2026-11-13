@@ -50,10 +50,14 @@ export async function POST(
       .map((m) => `=== DOCUMENT: ${m.filename} ===\n${m.extracted_text}`)
       .join('\n\n');
 
+    // Retrieve module context if linked
+    const module = assessment.module_id ? db.getModules(course.id).find((m) => m.id === assessment.module_id) : undefined;
+    const moduleTitle = module ? module.title : assessment.title;
+
     // Call Groq / Grounded generator to produce complete packages strictly from uploaded material
     const questionPackages = await generateQuestionPackages({
       courseTitle: `${course.code}: ${course.title}`,
-      moduleTitle: assessment.title,
+      moduleTitle,
       groundingText,
       questionCount,
       targetTraits,

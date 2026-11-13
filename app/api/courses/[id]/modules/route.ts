@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const modules = db.getModules(params.id);
+  return NextResponse.json({ success: true, modules });
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }

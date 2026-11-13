@@ -31,6 +31,7 @@ export default function StudentAssessmentExamRoom() {
 
   const [courses, setCourses] = useState<any[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
+  const [modules, setModules] = useState<any[]>([]);
   const [assessments, setAssessments] = useState<any[]>([]);
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<string>('');
 
@@ -49,10 +50,15 @@ export default function StudentAssessmentExamRoom() {
   const [finalResult, setFinalResult] = useState<any>(null);
 
   async function loadAssessmentsForCourse(courseId: string) {
-    const aRes = await fetch(`/api/courses/${courseId}/assessments?onlyPublished=true`);
+    const [aRes, mRes] = await Promise.all([
+      fetch(`/api/courses/${courseId}/assessments?onlyPublished=true`),
+      fetch(`/api/courses/${courseId}/modules`),
+    ]);
     const aData = await aRes.json();
+    const mData = await mRes.json();
     const list = aData.assessments || [];
     setAssessments(list);
+    setModules(mData.modules || []);
     setSelectedAssessmentId(list[0]?.id || '');
   }
 
@@ -109,14 +115,16 @@ export default function StudentAssessmentExamRoom() {
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  const handleStartExam = async () => {
-    if (!selectedAssessmentId) return;
+  const handleStartExam = async (targetAssessmentId?: string) => {
+    const aid = targetAssessmentId || selectedAssessmentId;
+    if (!aid) return;
+    setSelectedAssessmentId(aid);
 
     const res = await fetch('/api/attempts/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        assessment_id: selectedAssessmentId,
+        assessment_id: aid,
         student_id: activeStudent.id,
       }),
     });
@@ -126,7 +134,7 @@ export default function StudentAssessmentExamRoom() {
       setAttempt(data.attempt);
       setQuestions(data.questions || []);
 
-      const selectedAsmt = assessments.find((a) => a.id === selectedAssessmentId);
+      const selectedAsmt = assessments.find((a) => a.id === aid);
       const limitMins = selectedAsmt?.time_limit_minutes || 30;
       const elapsedSec = data.attempt?.started_at
         ? Math.floor((Date.now() - new Date(data.attempt.started_at).getTime()) / 1000)
@@ -317,80 +325,171 @@ export default function StudentAssessmentExamRoom() {
     <div className="space-y-8 animate-fadeIn">
       {/* Pre-Exam Selection Screen */}
       {!examStarted ? (
-        <div className="max-w-2xl mx-auto space-y-6">
-          <div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Progressive Assessment Examination Room</h1>
-            <p className="text-sm text-gray-500 font-medium">
-              Take scheduled diagnostic baselines and final exams with server-assisted progressive hints.
-            </p>
+        <div className="max-w-4xl mx-auto space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+                Module-Wise Progressive Assessment Room
+              </h1>
+              <p className="text-sm text-gray-500 font-medium">
+                Choose a module to begin either a diagnostic baseline (strictly zero hints) or a progressive formative assessment (up to 2 hints on retry).
+              </p>
+            </div>
+
+            <div className="min-w-[240px]">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
+                Active Course
+              </label>
+              <select
+                value={selectedCourseId}
+                onChange={(e) => {
+                  setSelectedCourseId(e.target.value);
+                  loadAssessmentsForCourse(e.target.value);
+                }}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold text-[#3E2D68] bg-white shadow-sm focus:outline-none"
+              >
+                {courses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code}: {c.title}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <Card className="rounded-3xl border-none shadow-sm bg-white p-6 space-y-6">
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Select Course</label>
-                <select
-                  value={selectedCourseId}
-                  onChange={(e) => {
-                    setSelectedCourseId(e.target.value);
-                    loadAssessmentsForCourse(e.target.value);
-                  }}
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-xs font-bold text-[#3E2D68] focus:outline-none"
-                >
-                  {courses.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.code}: {c.title}
-                    </option>
-                  ))}
-                </select>
+          {/* Assessment Rules & Progressive Hint Notice */}
+          <div className="p-4 bg-purple-50/70 rounded-2xl border border-purple-200/60 text-xs text-[#3E2D68] space-y-2">
+            <div className="flex items-center space-x-2 font-bold text-sm">
+              <Sparkles className="w-4 h-4 text-[#7C3AED]" />
+              <span>Assessment Modes & The Progressive 2-Hint Engine</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+              <div className="p-3 bg-white/80 rounded-xl border border-amber-200">
+                <span className="font-bold text-amber-900 block mb-1">1. Diagnostic Assessment (Zero Hints)</span>
+                <p className="text-[11px] text-gray-600 leading-relaxed">
+                  Evaluates initial knowledge, foundational recall, and knowledge gaps prior to lecture discussion. Strictly no hints are unlocked.
+                </p>
               </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Select Assessment</label>
-                <select
-                  value={selectedAssessmentId}
-                  onChange={(e) => setSelectedAssessmentId(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-xs font-bold text-[#3E2D68] focus:outline-none"
-                >
-                  {assessments.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      [{a.assessment_type.toUpperCase()}] {a.title} ({a.time_limit_minutes} mins)
-                    </option>
-                  ))}
-                </select>
+              <div className="p-3 bg-white/80 rounded-xl border border-emerald-200">
+                <span className="font-bold text-emerald-900 block mb-1">2. Progressive Assessment (Max 2 Hints)</span>
+                <p className="text-[11px] text-gray-600 leading-relaxed">
+                  Mastery testing with up to 3 submissions. Incorrect answers unlock <strong>Hint 1 (-25%)</strong> and <strong>Hint 2 (-50%)</strong> dynamically.
+                </p>
               </div>
             </div>
+          </div>
 
-            {/* Assessment Rules & Progressive Hint Notice */}
-            <div className="p-4 bg-purple-50/70 rounded-2xl border border-purple-200/60 text-xs text-[#3E2D68] space-y-2">
-              <div className="flex items-center space-x-2 font-bold text-sm">
-                <Sparkles className="w-4 h-4 text-[#7C3AED]" />
-                <span>How the Progressive 2-Hint Mechanism Works</span>
-              </div>
-              <ul className="space-y-1.5 text-[11px] text-gray-700 list-disc pl-4 leading-relaxed">
-                <li>
-                  <strong>First Attempt:</strong> Submit your best answer. If correct, you earn full marks (100%).
-                </li>
-                <li>
-                  <strong>Incorrect Attempt 1:</strong> <strong>Hint 1</strong> unlocks automatically to guide your thinking. Submit Attempt 2 for up to 75% marks.
-                </li>
-                <li>
-                  <strong>Incorrect Attempt 2:</strong> <strong>Hint 2</strong> unlocks with deep formula/concept clues. Submit Attempt 3 for up to 50% marks.
-                </li>
-                <li>
-                  <strong>Strict Limit:</strong> Exactly 3 submissions permitted per question. No 4th attempt is allowed.
-                </li>
-              </ul>
-            </div>
+          {/* Module-Wise Assessment Cards */}
+          <div className="space-y-4">
+            {modules.length === 0 ? (
+              <Card className="rounded-3xl border-none shadow-sm bg-white p-8 text-center">
+                <p className="text-xs font-semibold text-gray-500">
+                  No modules or published assessments found for this course yet.
+                </p>
+              </Card>
+            ) : (
+              modules.map((m: any, mIdx: number) => {
+                const moduleAssessments = assessments.filter(
+                  (a) => a.module_id === m.id || (mIdx === 0 && !a.module_id)
+                );
+                const diagAsmt = moduleAssessments.find((a) => a.assessment_type === 'diagnostic');
+                const progAsmt = moduleAssessments.find((a) => a.assessment_type === 'progressive');
 
-            <Button
-              onClick={handleStartExam}
-              size="lg"
-              className="w-full rounded-2xl font-bold bg-[#3E2D68] hover:bg-[#322454] text-white shadow-md"
-            >
-              Start Assessment Now <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </Card>
+                return (
+                  <Card key={m.id} className="rounded-3xl border-none shadow-sm bg-white p-6 space-y-4">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <div className="flex items-center space-x-2.5">
+                        <span className="w-6 h-6 rounded-lg bg-purple-100 text-[#3E2D68] font-black text-xs flex items-center justify-center">
+                          {mIdx + 1}
+                        </span>
+                        <div>
+                          <h3 className="text-base font-bold text-gray-900">{m.title}</h3>
+                          <p className="text-[11px] text-gray-400 font-medium">
+                            {m.description || `Module ${mIdx + 1} curriculum and cognitive outcomes`}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] text-gray-500">
+                        Module {mIdx + 1}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Diagnostic Card */}
+                      <div className="p-4 rounded-2xl border border-amber-200/80 bg-amber-50/30 flex flex-col justify-between space-y-3">
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-bold">
+                              Diagnostic • Zero Hints
+                            </Badge>
+                            <span className="text-[11px] font-semibold text-gray-400 flex items-center space-x-1">
+                              <Clock className="w-3 h-3 text-gray-400 mr-1" />
+                              {diagAsmt ? `${diagAsmt.time_limit_minutes} mins` : '25 mins'}
+                            </span>
+                          </div>
+                          <h4 className="text-sm font-bold text-gray-900 mt-2">
+                            {diagAsmt?.title || `${m.title}: Diagnostic Assessment`}
+                          </h4>
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                            {diagAsmt?.description || 'Baseline diagnostic evaluation testing foundational knowledge without hints.'}
+                          </p>
+                        </div>
+
+                        {diagAsmt ? (
+                          <Button
+                            onClick={() => handleStartExam(diagAsmt.id)}
+                            size="sm"
+                            className="rounded-xl font-bold bg-[#3E2D68] hover:bg-[#322454] text-white text-xs w-full shadow-sm"
+                          >
+                            Start Diagnostic Exam <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                          </Button>
+                        ) : (
+                          <div className="text-[11px] text-gray-400 italic font-medium py-1 text-center bg-gray-50 rounded-xl">
+                            Pending Faculty Publishing
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Progressive Card */}
+                      <div className="p-4 rounded-2xl border border-emerald-200/80 bg-emerald-50/30 flex flex-col justify-between space-y-3">
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold">
+                              Progressive • 2 Hints on Retry
+                            </Badge>
+                            <span className="text-[11px] font-semibold text-gray-400 flex items-center space-x-1">
+                              <Clock className="w-3 h-3 text-gray-400 mr-1" />
+                              {progAsmt ? `${progAsmt.time_limit_minutes} mins` : '35 mins'}
+                            </span>
+                          </div>
+                          <h4 className="text-sm font-bold text-gray-900 mt-2">
+                            {progAsmt?.title || `${m.title}: Progressive Assessment`}
+                          </h4>
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                            {progAsmt?.description || 'Formative mastery assessment where incorrect answers unlock up to two progressive hints.'}
+                          </p>
+                        </div>
+
+                        {progAsmt ? (
+                          <Button
+                            onClick={() => handleStartExam(progAsmt.id)}
+                            size="sm"
+                            className="rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white text-xs w-full shadow-sm"
+                          >
+                            Start Progressive Exam <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                          </Button>
+                        ) : (
+                          <div className="text-[11px] text-gray-400 italic font-medium py-1 text-center bg-gray-50 rounded-xl">
+                            Pending Faculty Publishing
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })
+            )}
+          </div>
         </div>
       ) : finalResult ? (
         /* Final Exam Result Summary Screen */
@@ -450,6 +549,15 @@ export default function StudentAssessmentExamRoom() {
             <div className="flex items-center space-x-3">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Assessment:</span>
               <h2 className="text-sm font-bold text-gray-900 truncate">{attempt?.assessment?.title || 'Examination'}</h2>
+              {attempt?.assessment?.assessment_type === 'diagnostic' || attempt?.assessment?.progressive_hints_enabled === false ? (
+                <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-bold uppercase">
+                  Diagnostic: Strictly No Hints
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold uppercase">
+                  Progressive: 2 Hints on Retry
+                </Badge>
+              )}
             </div>
 
             <div className="flex items-center space-x-3">
@@ -652,13 +760,21 @@ export default function StudentAssessmentExamRoom() {
               {/* Submit Button & Progress State */}
               {!currentState.isFinalized ? (
                 <div className="pt-2 flex items-center justify-between">
-                  <div className="text-xs text-gray-400 font-medium">
-                    Attempt {currentState.responseNumber} of 3 •{' '}
-                    {currentState.responseNumber === 1
-                      ? '100% marks available'
-                      : currentState.responseNumber === 2
-                      ? '75% marks available'
-                      : '50% marks available'}
+                  <div className="text-xs text-gray-500 font-medium">
+                    {attempt?.assessment?.assessment_type === 'diagnostic' || attempt?.assessment?.progressive_hints_enabled === false ? (
+                      <span className="text-amber-800 font-bold">
+                        Diagnostic Baseline • Single attempt per question • Strictly zero hints
+                      </span>
+                    ) : (
+                      <span>
+                        Attempt {currentState.responseNumber} of 3 •{' '}
+                        {currentState.responseNumber === 1
+                          ? '100% marks available'
+                          : currentState.responseNumber === 2
+                          ? '75% marks available'
+                          : '50% marks available'}
+                      </span>
+                    )}
                   </div>
 
                   <Button
@@ -666,7 +782,11 @@ export default function StudentAssessmentExamRoom() {
                     disabled={submitting}
                     className="rounded-xl text-xs font-bold bg-[#3E2D68] px-6 py-2.5 text-white shadow-sm"
                   >
-                    {submitting ? 'Evaluating...' : `Submit Attempt ${currentState.responseNumber}`}
+                    {submitting
+                      ? 'Evaluating...'
+                      : attempt?.assessment?.assessment_type === 'diagnostic' || attempt?.assessment?.progressive_hints_enabled === false
+                      ? 'Submit Answer'
+                      : `Submit Attempt ${currentState.responseNumber}`}
                   </Button>
                 </div>
               ) : (

@@ -28,6 +28,9 @@ export default function AssessmentsPage() {
 
   const [courses, setCourses] = useState<any[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
+  const [modules, setModules] = useState<any[]>([]);
+  const [selectedModuleId, setSelectedModuleId] = useState<string>('');
+  const [assessmentTypeTab, setAssessmentTypeTab] = useState<'diagnostic' | 'progressive'>('diagnostic');
   const [assessments, setAssessments] = useState<any[]>([]);
   const [selectedAssessment, setSelectedAssessment] = useState<any>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -45,7 +48,7 @@ export default function AssessmentsPage() {
     'evaluation',
   ]);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
-  const [questionCount, setQuestionCount] = useState(6);
+  const [questionCount, setQuestionCount] = useState(5);
 
   // Edit Question Modal
   const [editingQuestion, setEditingQuestion] = useState<any>(null);
@@ -68,7 +71,7 @@ export default function AssessmentsPage() {
   // Create Assessment Modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [newType, setNewType] = useState<'diagnostic' | 'module' | 'final'>('diagnostic');
+  const [newType, setNewType] = useState<'diagnostic' | 'progressive' | 'module' | 'final'>('diagnostic');
   const [newDuration, setNewDuration] = useState(30);
   const [newMaxMarks, setNewMaxMarks] = useState(30);
   const [newPassingMarks, setNewPassingMarks] = useState(15);
@@ -91,14 +94,45 @@ export default function AssessmentsPage() {
     loadCourses();
   }, [activeFaculty.id]);
 
-  async function loadAssessments(courseId: string) {
+  async function loadAssessments(
+    courseId: string,
+    targetModuleId?: string,
+    targetType?: 'diagnostic' | 'progressive'
+  ) {
     setLoading(true);
     try {
+      // 1. Fetch modules for this course
+      const mRes = await fetch(`/api/courses/${courseId}/modules`);
+      const mData = await mRes.json();
+      const mods = mData.modules || [];
+      setModules(mods);
+
+      const activeModId =
+        targetModuleId !== undefined
+          ? targetModuleId
+          : selectedModuleId && mods.some((m: any) => m.id === selectedModuleId)
+          ? selectedModuleId
+          : mods[0]?.id || '';
+      setSelectedModuleId(activeModId);
+
+      const activeType = targetType || assessmentTypeTab;
+
+      // 2. Fetch assessments for course
       const res = await fetch(`/api/courses/${courseId}/assessments`);
       const data = await res.json();
-      setAssessments(data.assessments || []);
-      if (data.assessments?.[0]) {
-        loadAssessmentDetails(data.assessments[0].id);
+      const list = data.assessments || [];
+      setAssessments(list);
+
+      // 3. Find matching assessment for activeModId and activeType
+      const match =
+        list.find(
+          (a: any) =>
+            (a.module_id === activeModId || (!a.module_id && !activeModId)) &&
+            a.assessment_type === activeType
+        ) || list.find((a: any) => a.assessment_type === activeType);
+
+      if (match) {
+        await loadAssessmentDetails(match.id);
       } else {
         setSelectedAssessment(null);
         setQuestions([]);
@@ -107,6 +141,37 @@ export default function AssessmentsPage() {
       setLoading(false);
     }
   }
+
+  const handleAutoCreateForModule = async () => {
+    const mod = modules.find((m) => m.id === selectedModuleId);
+    const modTitle = mod ? mod.title : 'Module';
+    const isDiag = assessmentTypeTab === 'diagnostic';
+
+    const res = await fetch(`/api/courses/${selectedCourseId}/assessments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: `${modTitle}: ${isDiag ? 'Diagnostic Assessment' : 'Progressive Assessment'}`,
+        description: isDiag
+          ? 'Baseline diagnostic assessment with strictly no hints to test foundational knowledge.'
+          : 'Formative mastery assessment with up to two progressive hints on wrong answers.',
+        assessment_type: isDiag ? 'diagnostic' : 'progressive',
+        module_id: selectedModuleId,
+        progressive_hints_enabled: !isDiag,
+        time_limit_minutes: isDiag ? 25 : 35,
+        max_marks: 30,
+        passing_marks: 15,
+      }),
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      toast(`Created ${isDiag ? 'Diagnostic' : 'Progressive'} Assessment for ${modTitle}!`, 'success');
+      await loadAssessments(selectedCourseId, selectedModuleId, assessmentTypeTab);
+    } else {
+      toast(data.error || 'Failed to create assessment', 'error');
+    }
+  };
 
   async function loadAssessmentDetails(assessmentId: string) {
     const res = await fetch(`/api/assessments/${assessmentId}?isFaculty=true`);
@@ -340,33 +405,155 @@ export default function AssessmentsPage() {
         </div>
       </div>
 
-      {/* Assessment Selector Tabs */}
-      <div className="flex items-center space-x-3 overflow-x-auto pb-2">
-        {assessments.map((a) => {
-          const isSelected = selectedAssessment?.id === a.id;
-          return (
-            <button
-              key={a.id}
-              onClick={() => loadAssessmentDetails(a.id)}
-              className={`px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-2 border ${
-                isSelected
-                  ? 'bg-[#3E2D68] text-white border-[#3E2D68] shadow-md'
-                  : 'bg-white text-gray-700 border-gray-100 hover:border-gray-300'
-              }`}
-            >
-              <span className="capitalize">[{a.assessment_type}]</span>
-              <span>{a.title}</span>
-              <span
-                className={`text-[10px] px-1.5 py-0.5 rounded-full uppercase ${
-                  a.status === 'published' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+      {/* Module Selector Pills */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-bold text-gray-600 uppercase tracking-wider flex items-center space-x-1.5">
+            <Layers className="w-3.5 h-3.5 text-[#7C3AED]" />
+            <span>Course Modules ({modules.length})</span>
+          </label>
+        </div>
+
+        <div className="flex items-center space-x-2 overflow-x-auto pb-1">
+          {modules.map((m: any, idx: number) => {
+            const isSelected = selectedModuleId === m.id;
+            return (
+              <button
+                key={m.id}
+                onClick={() => {
+                  setSelectedModuleId(m.id);
+                  const match = assessments.find(
+                    (a: any) =>
+                      (a.module_id === m.id || (!a.module_id && !m.id)) &&
+                      a.assessment_type === assessmentTypeTab
+                  );
+                  if (match) {
+                    loadAssessmentDetails(match.id);
+                  } else {
+                    setSelectedAssessment(null);
+                    setQuestions([]);
+                  }
+                }}
+                className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all flex items-center space-x-2 border shrink-0 ${
+                  isSelected
+                    ? 'bg-[#3E2D68] text-white border-[#3E2D68] shadow-sm'
+                    : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300'
                 }`}
               >
-                {a.status}
-              </span>
-            </button>
-          );
-        })}
+                <span
+                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${
+                    isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  {idx + 1}
+                </span>
+                <span>{m.title}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
+
+      {/* Module Assessment Type: Diagnostic vs Progressive */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            setAssessmentTypeTab('diagnostic');
+            const match = assessments.find(
+              (a: any) =>
+                (a.module_id === selectedModuleId || (!a.module_id && !selectedModuleId)) &&
+                a.assessment_type === 'diagnostic'
+            );
+            if (match) {
+              loadAssessmentDetails(match.id);
+            } else {
+              setSelectedAssessment(null);
+              setQuestions([]);
+            }
+          }}
+          className={`p-4 rounded-2xl border text-left transition-all ${
+            assessmentTypeTab === 'diagnostic'
+              ? 'bg-purple-50/70 border-[#3E2D68] ring-2 ring-[#3E2D68]/20 shadow-sm'
+              : 'bg-white border-gray-200 hover:border-gray-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black uppercase text-[#3E2D68] tracking-wider">
+              Diagnostic Assessment
+            </span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800">
+              Strictly No Hints
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Evaluates baseline recall, core definitions, and foundational knowledge with zero hints.
+          </p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setAssessmentTypeTab('progressive');
+            const match = assessments.find(
+              (a: any) =>
+                (a.module_id === selectedModuleId || (!a.module_id && !selectedModuleId)) &&
+                a.assessment_type === 'progressive'
+            );
+            if (match) {
+              loadAssessmentDetails(match.id);
+            } else {
+              setSelectedAssessment(null);
+              setQuestions([]);
+            }
+          }}
+          className={`p-4 rounded-2xl border text-left transition-all ${
+            assessmentTypeTab === 'progressive'
+              ? 'bg-purple-50/70 border-[#3E2D68] ring-2 ring-[#3E2D68]/20 shadow-sm'
+              : 'bg-white border-gray-200 hover:border-gray-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black uppercase text-[#3E2D68] tracking-wider">
+              Progressive Assessment
+            </span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800">
+              Max 2 Hints on Retry
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Formative mastery testing with up to two tiered progressive hints on incorrect answers.
+          </p>
+        </button>
+      </div>
+
+      {/* When no assessment exists for this module & type */}
+      {!selectedAssessment && (
+        <Card className="rounded-3xl border border-dashed border-gray-200 bg-white p-10 text-center space-y-4">
+          <div className="w-12 h-12 rounded-2xl bg-purple-50 text-[#3E2D68] flex items-center justify-center mx-auto">
+            <BrainCircuit className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-gray-900">
+              No {assessmentTypeTab === 'diagnostic' ? 'Diagnostic' : 'Progressive'} Assessment for this Module yet
+            </h3>
+            <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
+              Create an assessment for{' '}
+              <strong className="text-gray-700">
+                {modules.find((m) => m.id === selectedModuleId)?.title || 'this module'}
+              </strong>{' '}
+              to generate questions grounded in uploaded course lecture notes.
+            </p>
+          </div>
+          <Button
+            onClick={handleAutoCreateForModule}
+            className="rounded-xl text-xs font-bold bg-[#3E2D68] text-white hover:bg-[#322454]"
+          >
+            <Plus className="w-4 h-4 mr-1.5" />
+            Create {assessmentTypeTab === 'diagnostic' ? 'Diagnostic' : 'Progressive'} Assessment
+          </Button>
+        </Card>
+      )}
 
       {/* Active Assessment Overview Bar */}
       {selectedAssessment && (
@@ -442,7 +629,8 @@ export default function AssessmentsPage() {
       )}
 
       {/* Questions List (Workbench) */}
-      <div className="space-y-4">
+      {selectedAssessment && (
+        <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-bold text-gray-900">
             Assessment Questions ({questions.length})
@@ -587,6 +775,7 @@ export default function AssessmentsPage() {
           ))
         )}
       </div>
+      )}
 
       {/* AI Question Package Generator Modal */}
       {showGenerateModal && (
@@ -603,6 +792,21 @@ export default function AssessmentsPage() {
               >
                 ✕
               </button>
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-gray-50 border border-gray-200 text-xs">
+              <div>
+                <span className="text-gray-400 uppercase font-bold text-[10px] block">Target Module</span>
+                <span className="font-bold text-[#3E2D68]">
+                  {modules.find((m) => m.id === selectedModuleId)?.title || 'Selected Module'}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-gray-400 uppercase font-bold text-[10px] block">Assessment Mode</span>
+                <span className="font-bold capitalize text-emerald-700">
+                  {selectedAssessment?.assessment_type || assessmentTypeTab}
+                </span>
+              </div>
             </div>
 
             <div className="p-3.5 bg-purple-50/80 rounded-2xl border border-purple-100 flex items-start space-x-2.5">

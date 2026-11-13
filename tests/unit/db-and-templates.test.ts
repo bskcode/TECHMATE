@@ -17,13 +17,13 @@ describe('PDF Material Grounding & End-to-End DB Service', () => {
     const cs101 = courses.find((c) => c.code === 'CS101') || courses[0];
     const assessments = db.getAssessments(cs101.id, true);
     expect(assessments.length).toBeGreaterThan(0);
-    const diag = assessments[0];
-    const questions = db.getQuestions(diag.id, false);
+    const progressive = assessments.find((a) => a.assessment_type === 'progressive') || assessments[0];
+    const questions = db.getQuestions(progressive.id, false);
     expect(questions.length).toBeGreaterThan(0);
     const q = questions[0];
 
     const uniqueStudentId = `test-student-${Date.now()}`;
-    const attempt = db.getOrCreateAttempt(diag.id, uniqueStudentId);
+    const attempt = db.getOrCreateAttempt(progressive.id, uniqueStudentId);
 
     // First attempt (wrong answer)
     const r1 = db.submitResponse(attempt.id, q.id, 1, '__wrong_answer__');

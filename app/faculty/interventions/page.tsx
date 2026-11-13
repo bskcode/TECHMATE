@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useApp } from '@/components/providers/app-provider';
+import { MarkdownView } from '@/components/ui/markdown-view';
 
 export default function FacultyInterventionsPage() {
   const { getActiveUser, toast } = useApp();
@@ -234,7 +235,7 @@ export default function FacultyInterventionsPage() {
                 </div>
 
                 {/* Faculty Approval Controls */}
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 shrink-0">
                   {selectedIntervention.status !== 'released' && (
                     <>
                       <Button
@@ -242,7 +243,7 @@ export default function FacultyInterventionsPage() {
                         variant="outline"
                         disabled={updating}
                         onClick={() => handleUpdateStatus('rejected')}
-                        className="rounded-xl text-xs font-bold border-rose-200 text-rose-600 hover:bg-rose-50 flex items-center space-x-1"
+                        className="rounded-xl text-xs font-bold border-rose-200 text-rose-600 hover:bg-rose-50 flex items-center space-x-1 shrink-0 px-3 py-2"
                       >
                         <XCircle className="w-3.5 h-3.5" />
                         <span>Reject</span>
@@ -251,15 +252,15 @@ export default function FacultyInterventionsPage() {
                         size="sm"
                         disabled={updating}
                         onClick={() => handleUpdateStatus('released')}
-                        className="rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center space-x-1.5 shadow-sm"
+                        className="rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center space-x-1.5 shadow-sm shrink-0 whitespace-nowrap px-4 py-2"
                       >
                         <Send className="w-3.5 h-3.5" />
-                        <span>Approve & Release</span>
+                        <span className="font-bold text-white">Approve & Release</span>
                       </Button>
                     </>
                   )}
                   {selectedIntervention.status === 'released' && (
-                    <Badge variant="emerald" className="text-xs font-bold py-1 px-3">
+                    <Badge variant="emerald" className="text-xs font-bold py-1 px-3 shrink-0">
                       Released to Student
                     </Badge>
                   )}
@@ -306,9 +307,7 @@ export default function FacultyInterventionsPage() {
                     <BookOpen className="w-4 h-4 text-[#3E2D68]" />
                     <span>Grounded Pedagogical Walkthrough</span>
                   </h3>
-                  <div className="bg-gray-50 rounded-2xl p-4 text-xs text-gray-800 leading-relaxed font-sans whitespace-pre-wrap">
-                    {selectedIntervention.material?.explanation_markdown}
-                  </div>
+                  <MarkdownView content={selectedIntervention.material?.explanation_markdown} />
                 </div>
 
                 {/* Worked Examples & Analogies */}
