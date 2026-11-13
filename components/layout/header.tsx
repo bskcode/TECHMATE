@@ -13,6 +13,7 @@ import {
   Check,
   Sparkles,
   ExternalLink,
+  LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/components/providers/app-provider';
@@ -322,6 +323,26 @@ export function Header({ currentRole, onRoleChange }: HeaderProps) {
                     </button>
                   );
                 })}
+              </div>
+
+              <div className="p-2 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between">
+                <Link
+                  href={isFaculty ? '/student' : '/faculty'}
+                  onClick={() => setUserMenuOpen(false)}
+                  className="px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-[#3E2D68] hover:bg-purple-100/60 transition-colors flex items-center space-x-1"
+                >
+                  <ArrowRightLeft className="w-3.5 h-3.5 mr-1" />
+                  <span>Go to {isFaculty ? 'Student' : 'Faculty'}</span>
+                </Link>
+
+                <Link
+                  href="/login"
+                  onClick={() => setUserMenuOpen(false)}
+                  className="px-2.5 py-1.5 rounded-xl text-[11px] font-bold text-rose-600 hover:bg-rose-50 transition-colors flex items-center space-x-1"
+                >
+                  <LogOut className="w-3.5 h-3.5 mr-1" />
+                  <span>Sign Out</span>
+                </Link>
               </div>
             </div>
           )}
