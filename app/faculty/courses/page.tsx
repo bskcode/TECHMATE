@@ -318,13 +318,6 @@ export default function CoursesPage() {
                   <Award className="w-5 h-5 text-emerald-600" />
                   <CardTitle className="text-base font-bold text-gray-900">Course Outcomes (COs)</CardTitle>
                 </div>
-                <a
-                  href="/templates/course-objectives-template.md"
-                  download
-                  className="text-[11px] font-bold text-[#3E2D68] hover:underline bg-purple-50 px-2.5 py-1 rounded-full"
-                >
-                  Download CO Template
-                </a>
               </CardHeader>
               <CardContent className="pt-4 space-y-4">
                 <div className="divide-y divide-gray-100 space-y-3">

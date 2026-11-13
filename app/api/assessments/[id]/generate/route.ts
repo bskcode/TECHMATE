@@ -30,18 +30,27 @@ export async function POST(
     ];
     const difficulty = body.difficulty || 'medium';
 
-    // Fetch approved course materials for grounding
-    const approvedMaterials = db.getMaterials(course.id, true);
-    let groundingText = approvedMaterials
-      .map((m) => `[Document: ${m.filename}]\n${m.extracted_text || ''}`)
-      .join('\n\n');
+    // Fetch approved course materials for grounding — questions MUST be from uploaded material
+    const approvedMaterials = db.getMaterials(course.id, true).filter(
+      (m) => m.extracted_text && m.extracted_text.trim().length > 0
+    );
 
-    if (!groundingText || groundingText.trim() === '') {
-      // If no approved text uploaded yet, use course description
-      groundingText = `Course: ${course.code} - ${course.title}. ${course.description || ''}`;
+    if (approvedMaterials.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `No approved course materials found for ${course.code}. Please upload your course PDF in Learning Materials first so questions can be generated directly from your uploaded material.`,
+        },
+        { status: 400 }
+      );
     }
 
-    // Call Groq / Grounded generator to produce complete packages
+    const materialIds = approvedMaterials.map((m) => m.id);
+    const groundingText = approvedMaterials
+      .map((m) => `=== DOCUMENT: ${m.filename} ===\n${m.extracted_text}`)
+      .join('\n\n');
+
+    // Call Groq / Grounded generator to produce complete packages strictly from uploaded material
     const questionPackages = await generateQuestionPackages({
       courseTitle: `${course.code}: ${course.title}`,
       moduleTitle: assessment.title,
@@ -51,11 +60,18 @@ export async function POST(
       difficulty,
     });
 
-    // Save generated packages into database after existing questions
+    // Save generated packages into database with grounding material links
     const existingQuestions = db.getQuestions(params.id, true);
     const startOrder = existingQuestions.length;
     const savedQuestions = questionPackages.map((pkg, idx) => {
-      return db.saveGeneratedQuestionPackage(params.id, pkg as any, startOrder + idx + 1);
+      return db.saveGeneratedQuestionPackage(
+        params.id,
+        {
+          ...(pkg as any),
+          grounding_material_ids: materialIds,
+        },
+        startOrder + idx + 1
+      );
     });
 
     // Return the full question list with answer keys for faculty review

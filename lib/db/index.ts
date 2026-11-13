@@ -343,7 +343,7 @@ export const db = {
       course_outcome_ids: [],
       difficulty: pkg.difficulty,
       approval_status: 'approved',
-      grounding_material_ids: [],
+      grounding_material_ids: (pkg as any).grounding_material_ids || [],
       source_reference: pkg.source_reference,
       created_at: new Date().toISOString(),
     };

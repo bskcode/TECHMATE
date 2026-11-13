@@ -1,23 +1,25 @@
 import { describe, it, expect } from 'vitest';
 import { db } from '../../lib/db';
-import { CONTENT_TEMPLATES } from '../../lib/templates/content-templates';
 
-describe('Content Templates & End-to-End DB Service', () => {
-  it('provides standardized templates for syllabus, objectives, and materials', () => {
-    const ids = CONTENT_TEMPLATES.map((t) => t.id);
-    expect(ids).toEqual(['syllabus', 'objectives', 'material']);
-    CONTENT_TEMPLATES.forEach((tpl) => {
-      expect(tpl.content.length).toBeGreaterThan(100);
-      expect(tpl.downloadPath).toMatch(/^\/templates\/.+\.md$/);
-    });
+describe('PDF Material Grounding & End-to-End DB Service', () => {
+  it('retrieves approved course materials for assessment question grounding', () => {
+    const courses = db.getCourses();
+    expect(courses.length).toBeGreaterThan(0);
+    const cs101 = courses.find((c) => c.code === 'CS101') || courses[0];
+    const materials = db.getMaterials(cs101.id, true);
+    expect(materials.length).toBeGreaterThan(0);
+    expect(materials[0].extracted_text).toBeDefined();
+    expect(materials[0].approval_status).toBe('approved');
   });
 
   it('validates attempt sequence and blocks duplicate response_number replay', () => {
     const courses = db.getCourses();
-    const cs101 = courses[0];
+    const cs101 = courses.find((c) => c.code === 'CS101') || courses[0];
     const assessments = db.getAssessments(cs101.id, true);
+    expect(assessments.length).toBeGreaterThan(0);
     const diag = assessments[0];
     const questions = db.getQuestions(diag.id, false);
+    expect(questions.length).toBeGreaterThan(0);
     const q = questions[0];
 
     const uniqueStudentId = `test-student-${Date.now()}`;

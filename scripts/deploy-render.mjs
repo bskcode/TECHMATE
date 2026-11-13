@@ -1,15 +1,9 @@
-import { Render } from '@renderinc/sdk';
 import fs from 'fs';
 
 async function deploy() {
-  const apiKey = process.env.RENDER_API_KEY;
-  if (!apiKey) {
-    console.error('ERROR: RENDER_API_KEY environment variable is missing.');
-    console.log('Usage: $env:RENDER_API_KEY="rnd_..."; node scripts/deploy-render.mjs');
-    process.exit(1);
-  }
+  const apiKey = process.env.RENDER_API_KEY || 'rnd_T9rL5alxxbcP69nuwLN4vfdoTboh';
 
-  // Read Groq API key from .env.local if present
+  // Extract Groq API Key from .env.local
   let groqApiKey = process.env.GROQ_API_KEY;
   if (!groqApiKey && fs.existsSync('.env.local')) {
     const lines = fs.readFileSync('.env.local', 'utf8').split(/\r?\n/);
@@ -20,21 +14,21 @@ async function deploy() {
     }
   }
 
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey}`,
+    Accept: 'application/json',
+  };
+
   console.log('Connecting to Render API...');
-  const render = new Render({ apiKey });
-
-  // 1. Get Owner / Workspace ID
-  const owners = await render.owners.list();
-  if (!owners || owners.length === 0) {
-    console.error('ERROR: No workspaces/owners found in Render account.');
-    process.exit(1);
+  const ownersRes = await fetch('https://api.render.com/v1/owners', { headers });
+  const owners = await ownersRes.json();
+  if (!ownersRes.ok || !owners.length) {
+    throw new Error('Failed to list Render owners: ' + JSON.stringify(owners));
   }
-  const ownerId = owners[0].id;
-  console.log(`Found Workspace: ${owners[0].name} (ID: ${ownerId})`);
 
-  // 2. Check if service already exists
-  const services = await render.services.list();
-  const existing = services.find((s) => s.service.name === 'adaptivelearn-ai' || s.service.name === 'techmate-ai');
+  const owner = owners[0].owner;
+  console.log(`Using Workspace: ${owner.name} (${owner.id})`);
 
   const repoUrl = 'https://github.com/bskcode/TECHMATE';
 
@@ -48,39 +42,47 @@ async function deploy() {
     envVars.push({ key: 'GROQ_API_KEY', value: groqApiKey });
   }
 
-  if (existing) {
-    console.log(`Found existing service: ${existing.service.name} (ID: ${existing.service.id})`);
-    console.log('Triggering manual deploy...');
-    const dep = await render.services.triggerDeploy(existing.service.id, { clearCache: 'do_not_clear' });
-    console.log('Deploy triggered successfully! Deploy ID:', dep.id);
-    console.log(`Live Dashboard: https://dashboard.render.com/web/${existing.service.id}`);
-    return;
-  }
-
-  console.log(`Creating new Free Web Service for repository: ${repoUrl}...`);
-  const created = await render.services.createWebService({
-    name: 'adaptivelearn-ai',
-    ownerId,
+  const payload = {
+    type: 'web_service',
+    name: 'techmate-ai',
+    ownerId: owner.id,
     repo: repoUrl,
     branch: 'main',
     autoDeploy: 'yes',
     serviceDetails: {
       env: 'node',
       plan: 'free',
+      region: 'singapore',
       buildCommand: 'npm install && npm run build',
       startCommand: 'npm run start',
       healthCheckPath: '/api/health',
       envVars,
     },
+  };
+
+  console.log('Creating Web Service on Render...');
+  const createRes = await fetch('https://api.render.com/v1/services', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
   });
 
-  console.log('SUCCESS! Service created on Render.');
-  console.log(`Service ID: ${created.id}`);
+  const created = await createRes.json();
+  if (!createRes.ok) {
+    console.error('Render API Error:', JSON.stringify(created, null, 2));
+    process.exit(1);
+  }
+
+  console.log('\n======================================================');
+  console.log('SUCCESSFULLY CREATED RENDER WEB SERVICE!');
   console.log(`Service Name: ${created.name}`);
-  console.log(`Dashboard URL: https://dashboard.render.com/web/${created.id}`);
+  console.log(`Service ID:   ${created.id}`);
+  console.log(`Live URL:     ${created.serviceDetails?.url || 'Will be active once build completes'}`);
+  console.log(`Dashboard:    ${created.dashboardUrl}`);
+  console.log('======================================================\n');
 }
 
 deploy().catch((err) => {
-  console.error('Deployment script failed:', err.message || err);
+  console.error('Fatal error:', err);
   process.exit(1);
 });

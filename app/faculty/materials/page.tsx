@@ -8,15 +8,12 @@ import {
   Trash2,
   Eye,
   FileUp,
-  Download,
-  CopyCheck,
   Sparkles,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useApp } from '@/components/providers/app-provider';
-import { CONTENT_TEMPLATES, ContentTemplate } from '@/lib/templates/content-templates';
 
 export default function MaterialsPage() {
   const { getActiveUser, toast, confirmAction } = useApp();
@@ -29,9 +26,7 @@ export default function MaterialsPage() {
   const [uploading, setUploading] = useState(false);
   const [previewMaterial, setPreviewMaterial] = useState<any>(null);
 
-  // Form
-  const [rawText, setRawText] = useState('');
-  const [filename, setFilename] = useState('');
+  // Form: PDF File Upload Only
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   useEffect(() => {
@@ -68,23 +63,27 @@ export default function MaterialsPage() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCourseId) return;
+    if (!selectedCourseId) {
+      toast('Please select a course first.', 'warning');
+      return;
+    }
+
+    if (!selectedFile) {
+      toast('Please select a PDF file to upload.', 'warning');
+      return;
+    }
+
+    if (!selectedFile.name.toLowerCase().endsWith('.pdf')) {
+      toast('Only PDF files are supported. Please upload a .pdf document.', 'error');
+      return;
+    }
 
     setUploading(true);
     try {
       const formData = new FormData();
       formData.append('uploader_id', activeFaculty.id);
-      if (selectedFile) {
-        formData.append('file', selectedFile);
-        formData.append('filename', selectedFile.name);
-      } else if (rawText) {
-        formData.append('textContent', rawText);
-        formData.append('filename', filename || 'Lecture_Notes.md');
-      } else {
-        toast('Please select a file or enter text content.', 'warning');
-        setUploading(false);
-        return;
-      }
+      formData.append('file', selectedFile);
+      formData.append('filename', selectedFile.name);
 
       const res = await fetch(`/api/courses/${selectedCourseId}/materials`, {
         method: 'POST',
@@ -93,10 +92,8 @@ export default function MaterialsPage() {
 
       const data = await res.json();
       if (data.success) {
-        setRawText('');
-        setFilename('');
         setSelectedFile(null);
-        toast('Material uploaded and extracted for AI grounding!', 'success');
+        toast('PDF material uploaded and text extracted for AI question grounding!', 'success');
         await loadMaterials(selectedCourseId);
       } else {
         toast(`Upload error: ${data.error}`, 'error');
@@ -106,15 +103,6 @@ export default function MaterialsPage() {
     } finally {
       setUploading(false);
     }
-  };
-
-  const handleLoadTemplate = (tpl: ContentTemplate) => {
-    const course = courses.find((c) => c.id === selectedCourseId);
-    const code = course?.code || 'COURSE';
-    setSelectedFile(null);
-    setFilename(`${code}_${tpl.filename}`);
-    setRawText(tpl.content);
-    toast(`Loaded "${tpl.title}" into editor. Customize and click Upload.`, 'info');
   };
 
   const updateStatus = async (materialId: string, status: 'approved' | 'rejected') => {
@@ -186,114 +174,84 @@ export default function MaterialsPage() {
             <CardHeader className="border-b border-gray-50 pb-3">
               <div className="flex items-center space-x-2">
                 <FileUp className="w-5 h-5 text-[#3E2D68]" />
-                <CardTitle className="text-base font-bold text-gray-900">Upload & Ingest Document</CardTitle>
+                <CardTitle className="text-base font-bold text-gray-900">Upload PDF Course Material</CardTitle>
               </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Upload your course syllabus, lecture slides, or textbook in PDF format. Assessment questions are strictly generated from this uploaded content.
+              </p>
             </CardHeader>
             <CardContent className="pt-4">
               <form onSubmit={handleUpload} className="space-y-4">
-                {/* File Dropzone */}
+                {/* File Dropzone - PDF Only */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Select File (PDF, DOCX, TXT, MD)
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                    Select PDF Document (.pdf only)
                   </label>
-                  <input
-                    type="file"
-                    accept=".pdf,.docx,.pptx,.txt,.md"
-                    onChange={(e) => {
-                      if (e.target.files?.[0]) {
-                        setSelectedFile(e.target.files[0]);
-                      }
-                    }}
-                    className="w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-purple-50 file:text-[#3E2D68] hover:file:bg-purple-100 cursor-pointer"
-                  />
+                  <div className="border-2 border-dashed border-purple-200 hover:border-[#3E2D68] rounded-2xl p-4 text-center bg-purple-50/30 transition-colors">
+                    <input
+                      type="file"
+                      accept=".pdf,application/pdf"
+                      id="pdf-upload"
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) {
+                          setSelectedFile(e.target.files[0]);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="pdf-upload"
+                      className="cursor-pointer flex flex-col items-center justify-center space-y-2"
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-[#3E2D68]/10 text-[#3E2D68] flex items-center justify-center">
+                        <FileText className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-[#3E2D68] hover:underline">
+                          Choose a PDF file
+                        </span>
+                        <p className="text-[11px] text-gray-400 mt-0.5">PDF documents up to 25MB</p>
+                      </div>
+                    </label>
+                  </div>
+
                   {selectedFile && (
-                    <p className="text-[11px] text-emerald-600 font-semibold mt-1">
-                      Ready to upload: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
-                    </p>
+                    <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center space-x-2 overflow-hidden">
+                        <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="text-xs font-semibold text-emerald-800 truncate">
+                          {selectedFile.name}
+                        </span>
+                        <span className="text-[10px] text-emerald-600 font-mono shrink-0">
+                          ({(selectedFile.size / 1024).toFixed(1)} KB)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFile(null)}
+                        className="text-xs text-rose-500 hover:text-rose-700 font-bold ml-2"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   )}
-                </div>
-
-                <div className="relative flex py-1 items-center">
-                  <div className="flex-grow border-t border-gray-200"></div>
-                  <span className="flex-shrink mx-3 text-gray-400 text-[10px] uppercase font-bold">OR PASTE TEXT</span>
-                  <div className="flex-grow border-t border-gray-200"></div>
-                </div>
-
-                {/* Direct Text Input */}
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Document Title</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Chapter 4: Search Algorithms.txt"
-                    value={filename}
-                    onChange={(e) => setFilename(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs focus:outline-none focus:border-[#3E2D68]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Lecture Text / Notes</label>
-                  <textarea
-                    rows={4}
-                    placeholder="Paste lecture transcription or syllabus summary here..."
-                    value={rawText}
-                    onChange={(e) => setRawText(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs focus:outline-none focus:border-[#3E2D68]"
-                  />
                 </div>
 
                 <Button
                   type="submit"
-                  disabled={uploading}
-                  className="w-full rounded-xl text-xs font-bold bg-[#3E2D68]"
+                  disabled={uploading || !selectedFile}
+                  className="w-full rounded-xl text-xs font-bold bg-[#3E2D68] hover:bg-[#322353] py-5 shadow-sm"
                 >
-                  {uploading ? 'Processing & Extracting...' : 'Upload & Extract Text'}
+                  {uploading ? (
+                    <span className="flex items-center space-x-2">
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      <span>Ingesting PDF & Extracting Text...</span>
+                    </span>
+                  ) : (
+                    'Upload & Extract PDF for Grounding'
+                  )}
                 </Button>
               </form>
-            </CardContent>
-          </Card>
-
-          {/* Standardized Content Templates */}
-          <Card className="rounded-3xl border-none shadow-sm bg-white overflow-hidden">
-            <CardHeader className="border-b border-gray-50 pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-bold text-gray-900">Standardized Upload Templates</CardTitle>
-                <Badge variant="secondary" className="text-[10px]">Standard Format</Badge>
-              </div>
-              <p className="text-[11px] text-gray-500 mt-1">
-                Download or auto-fill a standard template to maintain consistent AI grounding quality.
-              </p>
-            </CardHeader>
-            <CardContent className="pt-3 space-y-2.5">
-              {CONTENT_TEMPLATES.map((tpl) => (
-                <div
-                  key={tpl.id}
-                  className="p-3 rounded-2xl bg-[#F4F5FA] flex items-center justify-between gap-2"
-                >
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-gray-900">{tpl.title}</p>
-                    <p className="text-[10px] text-gray-500 line-clamp-1">{tpl.description}</p>
-                  </div>
-                  <div className="flex items-center space-x-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleLoadTemplate(tpl)}
-                      className="px-2.5 py-1.5 rounded-xl bg-white border border-purple-200 text-[#3E2D68] text-[10px] font-bold hover:bg-purple-50 flex items-center space-x-1"
-                    >
-                      <CopyCheck className="w-3 h-3" />
-                      <span>Use</span>
-                    </button>
-                    <a
-                      href={tpl.downloadPath}
-                      download={tpl.filename}
-                      className="p-1.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-100"
-                      title={`Download ${tpl.filename}`}
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-                </div>
-              ))}
             </CardContent>
           </Card>
 
@@ -301,11 +259,10 @@ export default function MaterialsPage() {
           <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200/60 text-xs text-[#3E2D68]">
             <div className="flex items-center space-x-2 mb-1">
               <Sparkles className="w-4 h-4 text-[#7C3AED]" />
-              <span className="font-bold">Academic Grounding Guard</span>
+              <span className="font-bold">Strict Grounding Guarantee</span>
             </div>
             <p className="text-[11px] leading-relaxed text-[#4E3982]">
-              AdaptiveLearn AI only references <strong>Approved</strong> documents from this list when generating
-              assessments or personalized remediation packages.
+              All AI assessment questions, answers, rubrics, and diagnostic hints are generated <strong>exclusively</strong> from the text extracted from your approved uploaded PDF materials.
             </p>
           </div>
         </div>

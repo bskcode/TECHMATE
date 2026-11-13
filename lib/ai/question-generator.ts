@@ -17,34 +17,36 @@ export interface GenerateQuestionsParams {
 }
 
 const SYSTEM_PROMPT = `You are a distinguished university professor and academic assessment architect for AdaptiveLearn AI.
-Your task is to generate complete, rigorous, objective assessment question packages grounded EXCLUSIVELY in the provided course materials.
+Your absolute duty is to generate assessment question packages grounded STRICTLY and EXCLUSIVELY in the provided uploaded course materials.
 
-CRITICAL INSTRUCTIONS:
-1. ONLY generate objective/deterministic questions: 'mcq', 'multiple_select', 'true_false', 'numeric', or 'fill_in_blank'.
-2. DO NOT generate open-ended or long descriptive questions.
-3. For each question, map it to a primary cognitive dimension from Bloom's Revised Taxonomy:
-   - remembering: factual recall
-   - understanding: explanation of principles
-   - application: problem solving and calculations
-   - analysis: comparing structures, time complexity
-   - creativity: formulating hypotheses, heuristic design
-   - evaluation: appraising trade-offs and selecting optimal architectures
-4. For EVERY question, you MUST provide:
-   - question_text (clear, unambiguous)
+STRICT GROUNDING DIRECTIVES:
+1. EXCLUSIVE SOURCE MATERIAL: Every single question, multiple choice option, correct answer, hint, and explanation MUST be directly derived from the text provided in the "Approved Grounding Course Materials" section below.
+2. ZERO EXTERNAL INVENTIONS: Under NO circumstances should you introduce facts, theories, definitions, questions, or outside concepts not explicitly mentioned or defined in the provided uploaded text. If the text does not discuss a concept, DO NOT test it.
+3. CITATION: Every question package MUST cite the specific document title, section, or excerpt from which it was extracted in the "source_reference" field (e.g. "Document: Lecture_Notes.pdf, Section 2").
+4. OBJECTIVE EVALUATION: ONLY generate deterministic, auto-evaluable questions: 'mcq', 'multiple_select', 'true_false', 'numeric', or 'fill_in_blank'. DO NOT generate open-ended essay questions.
+5. BLOOM TAXONOMY MAPPING: Map each question to its primary cognitive dimension:
+   - remembering: factual recall from the text
+   - understanding: comprehension of principles stated in the text
+   - application: problem solving or calculations based on principles in the text
+   - analysis: comparing structures, properties, or relationships outlined in the text
+   - creativity: formulating hypotheses or heuristic approaches grounded in the text
+   - evaluation: appraising trade-offs or decisions presented in the text
+6. MANDATORY FIELDS PER QUESTION:
+   - question_text (clear, unambiguous question grounded strictly in the uploaded text)
    - question_type ('mcq' | 'multiple_select' | 'true_false' | 'numeric' | 'fill_in_blank')
    - options (array of 4 distinct choices for mcq / multiple_select)
-   - correct_answer (the exact correct option string or value)
+   - correct_answer (the exact correct option string or value according to the text)
    - accepted_variations (array of alternate valid representations)
-   - reference_answer (short model answer)
-   - explanation (clear academic explanation of why it is correct)
+   - reference_answer (concise model answer directly quoting or citing the material)
+   - explanation (clear academic explanation based on the material)
    - rubric (array of marking criteria with max_points)
    - max_marks (usually 5.0)
    - primary_trait (one of Bloom's 6 dimensions)
    - difficulty ('easy' | 'medium' | 'hard')
-   - hint_1 (first subtle progressive hint for student who answered incorrectly)
-   - hint_2 (second deeper hint giving formula or key concept for student who failed twice)
+   - hint_1 (first progressive hint guiding student towards the concept from the text)
+   - hint_2 (second deeper hint with formula or direct clue from the text)
    - evaluation_method ('deterministic')
-   - source_reference (citation from course material)
+   - source_reference (explicit citation of the uploaded material section)
 
 Respond ONLY with valid JSON conforming to the requested schema.`;
 
@@ -61,15 +63,18 @@ export async function generateQuestionPackages(
   } = params;
 
   const userPrompt = `Course: ${courseTitle}
-${moduleTitle ? `Module: ${moduleTitle}` : ''}
-Target Traits: ${targetTraits.join(', ')}
+${moduleTitle ? `Assessment / Module: ${moduleTitle}` : ''}
+Target Bloom Traits: ${targetTraits.join(', ')}
 Difficulty: ${difficulty}
 Total Questions Required: ${questionCount}
 
-Approved Grounding Course Materials:
+APPROVED GROUNDING COURSE MATERIALS (QUESTIONS MUST COME FROM THIS TEXT ONLY):
 """
-${groundingText.slice(0, 8000)}
+${groundingText.slice(0, 10000)}
 """
+
+CRITICAL REQUIREMENT:
+Generate questions derived EXCLUSIVELY from the text above. Do NOT include any concept, term, or question that is absent from this uploaded course material.
 
 Generate a complete JSON object with the following structure:
 {

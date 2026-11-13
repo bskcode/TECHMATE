@@ -614,10 +614,13 @@ export default function AssessmentsPage() {
               </button>
             </div>
 
-            <p className="text-xs text-gray-500 leading-relaxed">
-              Groq generates complete, grounded question packages conforming to Bloom&apos;s Revised Taxonomy, complete with
-              marking keys and progressive hints.
-            </p>
+            <div className="p-3.5 bg-purple-50/80 rounded-2xl border border-purple-100 flex items-start space-x-2.5">
+              <Sparkles className="w-4 h-4 text-[#7C3AED] mt-0.5 shrink-0" />
+              <div className="text-xs text-[#3E2D68] leading-relaxed">
+                <span className="font-bold block mb-0.5">Strict PDF Material Grounding</span>
+                Questions, options, correct answers, hints, and explanations will be generated <strong>exclusively</strong> from the text of your uploaded and approved course PDF materials.
+              </div>
+            </div>
 
             <div className="space-y-4">
               <div>
