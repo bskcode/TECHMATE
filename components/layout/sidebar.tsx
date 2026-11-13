@@ -61,14 +61,18 @@ export function Sidebar({ currentRole }: SidebarProps) {
   return (
     <aside className="w-64 bg-[#3E2D68] text-white flex flex-col justify-between shrink-0 shadow-xl min-h-screen z-30 select-none">
       <div>
-        {/* Brand Header */}
-        <div className="p-6 flex items-center space-x-3 border-b border-[#4E3982]/60">
-          <div className="w-10 h-10 rounded-2xl bg-white text-[#3E2D68] flex items-center justify-center font-bold text-xl shadow-md">
-            <GraduationCap className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="font-extrabold text-base tracking-wide text-white">AdaptiveLearn</h1>
-            <p className="text-xs text-[#C4B5FD] font-medium uppercase tracking-wider">AI Platform</p>
+        {/* Brand Header with RNSIT Logo & TechMate */}
+        <div className="p-5 flex items-center space-x-3 border-b border-[#4E3982]/60">
+          <img
+            src="/logos/rnsit-seal.png"
+            alt="RNSIT Seal"
+            className="w-10 h-10 rounded-full bg-white p-0.5 object-contain shadow-md shrink-0"
+          />
+          <div className="min-w-0">
+            <h1 className="font-extrabold text-base tracking-wide text-white truncate">TechMate</h1>
+            <p className="text-[10px] text-[#C4B5FD] font-semibold tracking-wider uppercase truncate">
+              RNSIT Portal
+            </p>
           </div>
         </div>
 

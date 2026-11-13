@@ -115,11 +115,23 @@ function LoginForm() {
           <span>Back to Landing Page</span>
         </Link>
 
-        <div className="flex items-center space-x-2">
-          <div className="w-7 h-7 rounded-xl bg-[#3E2D68] flex items-center justify-center text-white font-black text-xs">
-            TM
+        <div className="flex items-center space-x-3">
+          <img
+            src="/logos/rnsit-seal.png"
+            alt="RNSIT Seal"
+            className="w-9 h-9 object-contain drop-shadow-sm"
+          />
+          <img
+            src="/logos/rnsit-jubilee.jpg"
+            alt="RNSIT Jubilee"
+            className="h-8 w-auto object-contain drop-shadow-sm"
+          />
+          <div className="hidden sm:block text-left">
+            <span className="text-xs font-bold text-gray-900 block leading-tight">
+              RNS Institute of Technology
+            </span>
+            <span className="text-[10px] text-gray-500 font-semibold">TechMate Portal</span>
           </div>
-          <span className="text-xs font-bold text-gray-900">TechMate Portal</span>
         </div>
       </header>
 
@@ -128,12 +140,28 @@ function LoginForm() {
         <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 sm:p-8 space-y-6 animate-fadeIn">
           {/* Brand & Heading */}
           <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#3E2D68] to-[#6C47FF] mx-auto flex items-center justify-center shadow-md shadow-purple-500/20">
-              <BrainCircuit className="w-6 h-6 text-white" />
+            <div className="flex items-center justify-center space-x-3 mb-1">
+              <img
+                src="/logos/rnsit-seal.png"
+                alt="RNSIT Seal"
+                className="w-14 h-14 object-contain drop-shadow"
+              />
+              <img
+                src="/logos/rnsit-jubilee.jpg"
+                alt="RNSIT Jubilee"
+                className="h-12 w-auto object-contain drop-shadow"
+              />
             </div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Academic Portal Sign In</h1>
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-wider text-[#3E2D68]">
+                RNS Institute of Technology
+              </p>
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+                TechMate Sign In
+              </h1>
+            </div>
             <p className="text-xs text-gray-500 font-medium">
-              Select your university role and authenticate to access your dashboard.
+              Select your role and authenticate to access your cognitive learning dashboard.
             </p>
           </div>
 
@@ -298,7 +326,7 @@ function LoginForm() {
 
       {/* Bottom Footer */}
       <footer className="p-4 text-center text-xs text-gray-400">
-        &copy; {new Date().getFullYear()} TechMate / AdaptiveLearn AI Platform. All rights reserved.
+        &copy; {new Date().getFullYear()} RNS Institute of Technology • TechMate Platform. All rights reserved.
       </footer>
     </div>
   );
