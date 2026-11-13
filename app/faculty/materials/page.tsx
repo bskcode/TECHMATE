@@ -73,8 +73,10 @@ export default function MaterialsPage() {
       return;
     }
 
-    if (!selectedFile.name.toLowerCase().endsWith('.pdf')) {
-      toast('Only PDF files are supported. Please upload a .pdf document.', 'error');
+    const lower = selectedFile.name.toLowerCase();
+    const validExts = ['.pdf', '.txt', '.docx', '.pptx', '.md'];
+    if (!validExts.some(ext => lower.endsWith(ext))) {
+      toast('Supported formats: PDF, TXT, DOCX, PPTX, MD.', 'error');
       return;
     }
 
@@ -174,23 +176,23 @@ export default function MaterialsPage() {
             <CardHeader className="border-b border-gray-50 pb-3">
               <div className="flex items-center space-x-2">
                 <FileUp className="w-5 h-5 text-[#3E2D68]" />
-                <CardTitle className="text-base font-bold text-gray-900">Upload PDF Course Material</CardTitle>
+                <CardTitle className="text-base font-bold text-gray-900">Upload Course Material</CardTitle>
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                Upload your course syllabus, lecture slides, or textbook in PDF format. Assessment questions are strictly generated from this uploaded content.
+                Upload your course syllabus, lecture slides, or textbook (PDF, TXT, DOCX, MD). Assessment questions are strictly generated from this uploaded content.
               </p>
             </CardHeader>
             <CardContent className="pt-4">
               <form onSubmit={handleUpload} className="space-y-4">
-                {/* File Dropzone - PDF Only */}
+                {/* File Dropzone */}
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                    Select PDF Document (.pdf only)
+                    Select Document (PDF, TXT, DOCX, MD)
                   </label>
                   <div className="border-2 border-dashed border-purple-200 hover:border-[#3E2D68] rounded-2xl p-4 text-center bg-purple-50/30 transition-colors">
                     <input
                       type="file"
-                      accept=".pdf,application/pdf"
+                      accept=".pdf,.txt,.docx,.pptx,.md,application/pdf,text/plain"
                       id="pdf-upload"
                       onChange={(e) => {
                         if (e.target.files?.[0]) {

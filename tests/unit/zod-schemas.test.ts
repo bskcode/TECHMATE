@@ -37,5 +37,25 @@ describe('AI Zod Schemas', () => {
 
     expect(() => QuestionPackageSchema.parse(invalidPkg)).toThrow();
   });
-});
 
+  it('gracefully normalizes LLM outputs with array answers, aliases, and capitalization', () => {
+    const llmPkg = {
+      question_text: 'Which protocols belong to the transport layer?',
+      question_type: 'multi_select',
+      options: ['TCP', 'UDP', 'IP', 'HTTP'],
+      correct_answer: ['TCP', 'UDP'],
+      accepted_variations: [['TCP', 'UDP']],
+      rubric: [{ criterion: 'Accuracy in selecting transport protocols', max_points: 5 }],
+      primary_trait: 'Analysis',
+      difficulty: 'Medium',
+    };
+
+    const parsed = QuestionPackageSchema.parse(llmPkg);
+    expect(parsed.question_type).toBe('multiple_select');
+    expect(parsed.correct_answer).toBe('TCP, UDP');
+    expect(parsed.accepted_variations).toEqual(['TCP', 'UDP']);
+    expect(parsed.primary_trait).toBe('analysis');
+    expect(parsed.difficulty).toBe('medium');
+    expect(parsed.rubric?.[0].criteria_name).toBe('Accuracy in selecting transport protocols');
+  });
+});

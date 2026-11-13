@@ -257,6 +257,14 @@ export const db = {
     return assessment;
   },
 
+  updateAssessment(id: string, updates: Partial<Assessment>): Assessment | undefined {
+    const assessment = mockDb.assessments.find((a) => a.id === id);
+    if (!assessment) return undefined;
+    Object.assign(assessment, updates);
+    mockDb.saveToDisk();
+    return assessment;
+  },
+
   // ------------------------------------------------------------------
   // QUESTIONS (STRICT RLS SANITIZATION)
   // ------------------------------------------------------------------
@@ -455,6 +463,16 @@ export const db = {
     mockDb.question_hints = mockDb.question_hints.filter((h) => h.question_id !== id);
     mockDb.saveToDisk();
     return true;
+  },
+
+  deleteQuestionsForAssessment(assessmentId: string): number {
+    const qIds = mockDb.questions.filter((q) => q.assessment_id === assessmentId).map((q) => q.id);
+    if (qIds.length === 0) return 0;
+    mockDb.questions = mockDb.questions.filter((q) => q.assessment_id !== assessmentId);
+    mockDb.question_answer_keys = mockDb.question_answer_keys.filter((ak) => !qIds.includes(ak.question_id));
+    mockDb.question_hints = mockDb.question_hints.filter((h) => !qIds.includes(h.question_id));
+    mockDb.saveToDisk();
+    return qIds.length;
   },
 
   // ------------------------------------------------------------------

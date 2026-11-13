@@ -49,6 +49,7 @@ export default function AssessmentsPage() {
   ]);
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [questionCount, setQuestionCount] = useState(5);
+  const [replaceExisting, setReplaceExisting] = useState(true);
 
   // Edit Question Modal
   const [editingQuestion, setEditingQuestion] = useState<any>(null);
@@ -124,12 +125,11 @@ export default function AssessmentsPage() {
       setAssessments(list);
 
       // 3. Find matching assessment for activeModId and activeType
-      const match =
-        list.find(
-          (a: any) =>
-            (a.module_id === activeModId || (!a.module_id && !activeModId)) &&
-            a.assessment_type === activeType
-        ) || list.find((a: any) => a.assessment_type === activeType);
+      const match = list.find(
+        (a: any) =>
+          (a.module_id === activeModId || (!a.module_id && !activeModId)) &&
+          a.assessment_type === activeType
+      );
 
       if (match) {
         await loadAssessmentDetails(match.id);
@@ -191,6 +191,7 @@ export default function AssessmentsPage() {
           questionCount,
           targetTraits,
           difficulty,
+          replaceExisting,
         }),
       });
 
@@ -199,7 +200,7 @@ export default function AssessmentsPage() {
         setShowGenerateModal(false);
         toast(data.message || 'Questions generated successfully!', 'success');
         await loadAssessmentDetails(selectedAssessment.id);
-        await loadAssessments(selectedCourseId);
+        await loadAssessments(selectedCourseId, selectedModuleId, assessmentTypeTab);
       } else {
         toast(`Generation error: ${data.error}`, 'error');
       }
@@ -838,6 +839,15 @@ export default function AssessmentsPage() {
                 <p className="text-[10px] text-gray-400 mt-1">
                   Groq LLM will generate exactly this number of questions derived strictly from your uploaded lecture PDF.
                 </p>
+                <label className="flex items-center space-x-2 text-xs font-semibold text-gray-700 cursor-pointer mt-2.5">
+                  <input
+                    type="checkbox"
+                    checked={replaceExisting}
+                    onChange={(e) => setReplaceExisting(e.target.checked)}
+                    className="rounded border-gray-300 text-[#3E2D68] focus:ring-[#3E2D68]"
+                  />
+                  <span>Replace existing questions in this assessment</span>
+                </label>
               </div>
 
               <div>

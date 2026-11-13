@@ -1,6 +1,7 @@
 // ====================================================================
 // ADAPTIVELEARN AI — Question Package Generator
-// Authoring-time generation of complete question packages
+// Authoring-time generation of complete question packages strictly
+// grounded in uploaded course notes and lecture materials.
 // ====================================================================
 
 import { groqService } from './groq-provider';
@@ -34,12 +35,12 @@ STRICT GROUNDING DIRECTIVES:
 6. MANDATORY FIELDS PER QUESTION:
    - question_text (clear, unambiguous question grounded strictly in the uploaded text)
    - question_type ('mcq' | 'multiple_select' | 'true_false' | 'numeric' | 'fill_in_blank')
-   - options (array of 4 distinct choices for mcq / multiple_select)
-   - correct_answer (the exact correct option string or value according to the text)
+   - options (array of 4 distinct choices for mcq / multiple_select; ['True', 'False'] for true_false)
+   - correct_answer (the exact correct option string; for multiple_select, comma-separated options)
    - accepted_variations (array of alternate valid representations)
    - reference_answer (concise model answer directly quoting or citing the material)
-   - explanation (clear academic explanation based on the material)
-   - rubric (array of marking criteria with max_points)
+   - explanation (clear academic explanation based strictly on the material)
+   - rubric (array of marking criteria with criteria_name, description, max_points: 5, weight: 1.0)
    - max_marks (usually 5.0)
    - primary_trait (one of Bloom's 6 dimensions)
    - difficulty ('easy' | 'medium' | 'hard')
@@ -57,7 +58,7 @@ export async function generateQuestionPackages(
     courseTitle,
     moduleTitle,
     groundingText,
-    questionCount = 6,
+    questionCount = 5,
     targetTraits = ['remembering', 'understanding', 'application', 'analysis', 'creativity', 'evaluation'],
     difficulty = 'medium',
   } = params;
@@ -72,19 +73,36 @@ EXACT NUMBER OF QUESTIONS REQUIRED: ${questionCount}
 
 APPROVED UPLOADED LECTURE MATERIAL (ALL QUESTIONS MUST BE DERIVED STRICTLY FROM THIS TEXT ONLY):
 """
-${groundingText.slice(0, 10000)}
+${groundingText.slice(0, 35000)}
 """
 
 CRITICAL GROUNDING DIRECTIVES:
 1. Every single question, answer option, correct answer, explanation, hint, and rubric criteria MUST be formulated EXCLUSIVELY and DIRECTLY from the uploaded lecture text above.
 2. Under NO circumstances should you introduce facts, terms, or topics that are absent from this text.
 3. The questions array MUST have a length of EXACTLY ${questionCount}.
-
-Generate a complete JSON object with the following structure:
+4. Output ONLY valid JSON with this exact structure:
 {
-  "assessment_title": "...",
-  "assessment_description": "...",
-  "questions": [ ... exactly ${questionCount} complete question packages ... ]
+  "assessment_title": "${courseTitle} - ${moduleTitle || 'Assessment'}",
+  "assessment_description": "Objective assessment grounded strictly in course materials.",
+  "questions": [
+    {
+      "question_text": "...",
+      "question_type": "mcq",
+      "options": ["Option 1", "Option 2", "Option 3", "Option 4"],
+      "correct_answer": "Option 1",
+      "accepted_variations": ["Option 1"],
+      "reference_answer": "Model answer from lecture text",
+      "explanation": "Why this is correct based strictly on the text",
+      "rubric": [{ "criteria_name": "Accuracy", "description": "Grounded per lecture notes", "max_points": 5, "weight": 1.0 }],
+      "max_marks": 5,
+      "primary_trait": "understanding",
+      "difficulty": "${difficulty}",
+      "hint_1": "Progressive clue 1 from text",
+      "hint_2": "Progressive clue 2 with deeper quote/formula from text",
+      "evaluation_method": "deterministic",
+      "source_reference": "Document citation"
+    }
+  ]
 }`;
 
   if (groqService.isConfigured()) {
@@ -95,7 +113,20 @@ Generate a complete JSON object with the following structure:
         temperature: 0.1,
       });
 
-      const parsed = JSON.parse(rawJson);
+      // Strip code fences or isolate JSON block
+      let cleanedJson = rawJson.trim();
+      const codeFenceMatch = cleanedJson.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+      if (codeFenceMatch) {
+        cleanedJson = codeFenceMatch[1].trim();
+      } else {
+        const firstBrace = cleanedJson.indexOf('{');
+        const lastBrace = cleanedJson.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1) {
+          cleanedJson = cleanedJson.slice(firstBrace, lastBrace + 1);
+        }
+      }
+
+      const parsed = JSON.parse(cleanedJson);
       const validated = AssessmentGenerationResponseSchema.parse(parsed);
       const questions = validated.questions.map((q) => ({
         ...q,
@@ -103,174 +134,285 @@ Generate a complete JSON object with the following structure:
       }));
 
       // Strictly return exactly questionCount as requested by user
-      if (questions.length >= questionCount) {
+      if (questions.length === questionCount) {
+        return questions;
+      }
+
+      if (questions.length > questionCount) {
         return questions.slice(0, questionCount);
       }
 
-      // If Groq returned fewer than questionCount, pad with grounded questions to match exact count
-      const fallback = generateGroundedFallbackPackages(courseTitle, groundingText, targetTraits);
-      const combined = [...questions, ...fallback];
-      return combined.slice(0, questionCount);
+      // If Groq returned fewer than questionCount, dynamically generate remaining grounded questions from text
+      const remainingNeeded = questionCount - questions.length;
+      const fallback = generateGroundedFallbackPackages(courseTitle, groundingText, targetTraits, remainingNeeded);
+      return [...questions, ...fallback].slice(0, questionCount);
     } catch (err: any) {
-      console.warn('Groq question generation failed or invalid schema, falling back to grounded generator:', err.message);
+      console.warn('Groq question generation failed or invalid schema, falling back to grounded text generator:', err.message);
     }
   }
 
-  // Grounded Deterministic Generator Fallback
-  return generateGroundedFallbackPackages(courseTitle, groundingText, targetTraits).slice(0, questionCount);
+  // Grounded Deterministic Generator Fallback strictly using provided text
+  return generateGroundedFallbackPackages(courseTitle, groundingText, targetTraits, questionCount);
+}
+
+interface ExtractedFact {
+  subject: string;
+  relation?: string;
+  detail: string;
+  raw: string;
+}
+
+/**
+ * Parses factual definitions, enumerations, and statements directly from the uploaded text.
+ */
+function extractFactsFromText(text: string): ExtractedFact[] {
+  const lines = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 10 && !l.startsWith('==='));
+
+  const facts: ExtractedFact[] = [];
+
+  for (const line of lines) {
+    // 1. Definition via colon: "Term: Definition description"
+    const colonMatch = line.match(/^(\d+[\.\)]\s*)?([A-Za-z0-9\s'-]+):\s*(.+)$/);
+    if (colonMatch && colonMatch[2].length < 50 && colonMatch[3].length > 10) {
+      facts.push({
+        subject: colonMatch[2].trim(),
+        detail: colonMatch[3].trim(),
+        raw: line,
+      });
+      continue;
+    }
+
+    // 2. Definition via copula: "Term is / are / refers to / consists of ..."
+    const copulaMatch = line.match(/^([A-Za-z0-9\s'()-]{3,45})\s+(is|are|refers to|consists of|provides|handles|operates on)\s+(.+)$/i);
+    if (copulaMatch && copulaMatch[3].length > 10) {
+      facts.push({
+        subject: copulaMatch[1].trim(),
+        relation: copulaMatch[2].toLowerCase(),
+        detail: copulaMatch[3].trim(),
+        raw: line,
+      });
+      continue;
+    }
+
+    // 3. Complete sentences
+    if (line.endsWith('.') && line.length > 25) {
+      const words = line.split(' ');
+      const subject = words.slice(0, Math.min(4, words.length)).join(' ');
+      facts.push({
+        subject,
+        detail: line,
+        raw: line,
+      });
+    }
+  }
+
+  return facts;
 }
 
 /**
  * High-quality grounded fallback generator that parses concepts from the provided
- * course text and maps them to Bloom's 6 cognitive dimensions.
+ * course text and maps them dynamically to Bloom's 6 cognitive dimensions.
+ * Strictly derives questions from the provided groundingText.
  */
-function generateGroundedFallbackPackages(
+export function generateGroundedFallbackPackages(
   courseTitle: string,
   groundingText: string,
-  targetTraits: BloomTrait[]
+  targetTraits: BloomTrait[] = ['remembering', 'understanding', 'application', 'analysis', 'creativity', 'evaluation'],
+  count: number = 6
 ): QuestionPackageZod[] {
   const packages: QuestionPackageZod[] = [];
+  const facts = extractFactsFromText(groundingText);
 
-  // 1. Remembering
-  if (targetTraits.includes('remembering')) {
-    packages.push({
-      question_text: `In the study of ${courseTitle}, what is the time complexity of searching an element in an ordered array of size N using Binary Search?`,
-      question_type: 'mcq',
-      options: ['O(1)', 'O(log N)', 'O(N)', 'O(N log N)'],
-      correct_answer: 'O(log N)',
-      accepted_variations: ['O(log N)', 'O(log(N))', 'O(logn)'],
-      reference_answer: 'Binary Search runs in logarithmic time O(log N).',
-      explanation: 'Binary search recursively halves the remaining search range, requiring at most ceil(log2(N)) steps.',
-      rubric: [{ criteria_name: 'Correct complexity class', description: 'Identifies logarithmic complexity', max_points: 5, weight: 1.0 }],
-      max_marks: 5,
-      primary_trait: 'remembering',
-      secondary_trait_weight: 0.0,
-      difficulty: 'easy',
-      hint_1: 'Consider how the problem size is divided by 2 at each successive comparison.',
-      hint_2: 'The inverse operation of doubling (powers of 2) is the base-2 logarithm.',
-      evaluation_method: 'deterministic',
-      source_reference: 'Module 1: Binary Search Time Complexity',
-    });
+  // If no structured facts extracted, create sentences from plain paragraphs
+  const fallbackSentences = groundingText
+    .split(/[.\n]/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 20);
+
+  const traits = targetTraits.length > 0 ? targetTraits : ['remembering', 'understanding', 'application', 'analysis', 'creativity', 'evaluation'];
+
+  for (let i = 0; i < count; i++) {
+    const trait = traits[i % traits.length] as BloomTrait;
+    const factIndex = facts.length > 0 ? i % facts.length : 0;
+    const fact = facts[factIndex];
+
+    const subject = fact?.subject || `Core Topic ${i + 1}`;
+    const detail = fact?.detail || fallbackSentences[i % Math.max(1, fallbackSentences.length)] || `Concepts of ${courseTitle}`;
+    const sourceRef = `Course Notes: ${subject}`;
+
+    switch (trait) {
+      case 'remembering': {
+        const questionText = fact?.relation
+          ? `According to the course material, what ${fact.relation} ${subject}?`
+          : `In the study of ${courseTitle}, which statement accurately identifies the definition or role of "${subject}"?`;
+        const correctAnswer = detail.endsWith('.') ? detail.slice(0, -1) : detail;
+        const distractor1 = `It is completely unrelated to ${subject} and does not apply.`;
+        const distractor2 = `It inverts the standard operation and operates without bounds.`;
+        const distractor3 = `It applies exclusively to unverified legacy protocols.`;
+
+        packages.push({
+          question_text: questionText,
+          question_type: 'mcq',
+          options: [correctAnswer, distractor1, distractor2, distractor3].sort(),
+          correct_answer: correctAnswer,
+          accepted_variations: [correctAnswer],
+          reference_answer: `${subject} ${fact?.relation || 'is'}: ${detail}`,
+          explanation: `Directly stated in the uploaded lecture material: "${fact?.raw || detail}"`,
+          rubric: [{ criteria_name: 'Factual Recall', description: 'Accurately identifies concept from material', max_points: 5, weight: 1.0 }],
+          max_marks: 5,
+          primary_trait: 'remembering',
+          secondary_trait_weight: 0.0,
+          difficulty: 'easy',
+          hint_1: `Review the section covering ${subject} in your lecture notes.`,
+          hint_2: `The notes state: "${detail.slice(0, 80)}..."`,
+          evaluation_method: 'deterministic',
+          source_reference: sourceRef,
+        });
+        break;
+      }
+
+      case 'understanding': {
+        const isTrue = i % 2 === 0;
+        const statement = isTrue
+          ? `According to the uploaded material: "${subject} ${fact?.relation || 'is defined as'} ${detail}".`
+          : `According to the uploaded material, ${subject} operates in reverse and contradicts: "${detail}".`;
+
+        packages.push({
+          question_text: `True or False: ${statement}`,
+          question_type: 'true_false',
+          options: ['True', 'False'],
+          correct_answer: isTrue ? 'True' : 'False',
+          accepted_variations: [isTrue ? 'True' : 'False', isTrue ? 'true' : 'false', isTrue ? 'T' : 'F'],
+          reference_answer: isTrue ? 'True.' : 'False. The statement mischaracterizes the text.',
+          explanation: `The uploaded course notes state: "${fact?.raw || detail}"`,
+          rubric: [{ criteria_name: 'Conceptual Understanding', description: 'Correctly verifies factual validity', max_points: 5, weight: 1.0 }],
+          max_marks: 5,
+          primary_trait: 'understanding',
+          secondary_trait_weight: 0.0,
+          difficulty: 'easy',
+          hint_1: `Read the definition of ${subject} carefully.`,
+          hint_2: `Compare the assertion directly with the lecture excerpt: "${detail.slice(0, 60)}"`,
+          evaluation_method: 'deterministic',
+          source_reference: sourceRef,
+        });
+        break;
+      }
+
+      case 'application': {
+        const questionText = `A practitioner working in ${courseTitle} needs to address the following requirement: "${detail}". Which concept from the course notes should be applied?`;
+        const otherSubjects = facts
+          .filter((_, idx) => idx !== factIndex)
+          .map((f) => f.subject)
+          .slice(0, 3);
+        while (otherSubjects.length < 3) {
+          otherSubjects.push(`Alternative Strategy ${otherSubjects.length + 1}`);
+        }
+
+        packages.push({
+          question_text: questionText,
+          question_type: 'mcq',
+          options: [subject, ...otherSubjects].sort(),
+          correct_answer: subject,
+          accepted_variations: [subject],
+          reference_answer: subject,
+          explanation: `According to the text, ${subject} addresses this directly: "${fact?.raw || detail}"`,
+          rubric: [{ criteria_name: 'Application of Principle', description: 'Correctly maps requirement to concept', max_points: 5, weight: 1.0 }],
+          max_marks: 5,
+          primary_trait: 'application',
+          secondary_trait_weight: 0.0,
+          difficulty: 'medium',
+          hint_1: `Consider which topic in the syllabus was introduced specifically for this function.`,
+          hint_2: `The term you are looking for is ${subject}.`,
+          evaluation_method: 'deterministic',
+          source_reference: sourceRef,
+        });
+        break;
+      }
+
+      case 'analysis': {
+        const questionText = `Fill in the blank: In the context of ${courseTitle}, ________ ${fact?.relation || 'is described as'}: ${detail}.`;
+
+        packages.push({
+          question_text: questionText,
+          question_type: 'fill_in_blank',
+          correct_answer: subject,
+          accepted_variations: [subject, subject.toLowerCase(), subject.toUpperCase()],
+          reference_answer: subject,
+          explanation: `The course text provides: "${fact?.raw || detail}"`,
+          rubric: [{ criteria_name: 'Structural Analysis', description: 'Identifies technical component from functionality', max_points: 5, weight: 1.0 }],
+          max_marks: 5,
+          primary_trait: 'analysis',
+          secondary_trait_weight: 0.0,
+          difficulty: 'medium',
+          hint_1: `The term has ${subject.split(' ').length} word(s).`,
+          hint_2: `The term begins with the letter "${subject.charAt(0)}".`,
+          evaluation_method: 'deterministic',
+          source_reference: sourceRef,
+        });
+        break;
+      }
+
+      case 'creativity': {
+        const questionText = `Which of the following characteristics accurately represent "${subject}" as established in the course material? (Select all that apply)`;
+        const correct1 = detail.slice(0, 80);
+        const correct2 = `Directly discussed in ${courseTitle}`;
+        const incorrect1 = `An obsolete method strictly prohibited by the course syllabus`;
+        const incorrect2 = `Requires infinite resources and cannot terminate`;
+
+        packages.push({
+          question_text: questionText,
+          question_type: 'multiple_select',
+          options: [correct1, correct2, incorrect1, incorrect2],
+          correct_answer: `${correct1}, ${correct2}`,
+          accepted_variations: [`${correct1}, ${correct2}`, `${correct2}, ${correct1}`],
+          reference_answer: `Both "${correct1}" and "${correct2}" are supported by the lecture notes.`,
+          explanation: `Based directly on the uploaded material: "${fact?.raw || detail}"`,
+          rubric: [{ criteria_name: 'Synthesis and Discernment', description: 'Selects all valid characteristics', max_points: 5, weight: 1.0 }],
+          max_marks: 5,
+          primary_trait: 'creativity',
+          secondary_trait_weight: 0.0,
+          difficulty: 'medium',
+          hint_1: `Identify the two statements that are affirmed by your course material.`,
+          hint_2: `Statements mentioning prohibition or infinite resources are inaccurate distractors.`,
+          evaluation_method: 'deterministic',
+          source_reference: sourceRef,
+        });
+        break;
+      }
+
+      case 'evaluation':
+      default: {
+        const questionText = `When evaluating architectural and theoretical trade-offs in ${courseTitle}, what makes "${subject}" significant according to the uploaded notes?`;
+        const correctOpt = `It provides: ${detail}`;
+        const dist1 = `It has no practical utility in modern implementations`;
+        const dist2 = `It was replaced by unverified heuristic estimates`;
+        const dist3 = `It causes indeterminate side-effects in all environments`;
+
+        packages.push({
+          question_text: questionText,
+          question_type: 'mcq',
+          options: [correctOpt, dist1, dist2, dist3].sort(),
+          correct_answer: correctOpt,
+          accepted_variations: [correctOpt],
+          reference_answer: correctOpt,
+          explanation: `The uploaded course notes specify: "${fact?.raw || detail}"`,
+          rubric: [{ criteria_name: 'Architectural Evaluation', description: 'Justifies significance per lecture text', max_points: 5, weight: 1.0 }],
+          max_marks: 5,
+          primary_trait: 'evaluation',
+          secondary_trait_weight: 0.0,
+          difficulty: 'hard',
+          hint_1: `Evaluate the functional utility described in your notes.`,
+          hint_2: `The significance is directly tied to: "${detail.slice(0, 60)}"`,
+          evaluation_method: 'deterministic',
+          source_reference: sourceRef,
+        });
+        break;
+      }
+    }
   }
 
-  // 2. Understanding
-  if (targetTraits.includes('understanding')) {
-    packages.push({
-      question_text: 'According to De Morgan\'s laws in propositional logic, the statement NOT (A AND B) is logically equivalent to (NOT A) AND (NOT B).',
-      question_type: 'true_false',
-      options: ['True', 'False'],
-      correct_answer: 'False',
-      accepted_variations: ['False', 'false', 'F'],
-      reference_answer: 'False. By De Morgan\'s theorem, NOT (A AND B) == (NOT A) OR (NOT B).',
-      explanation: 'Negating a logical conjunction produces a disjunction of negations: NOT (A AND B) = (NOT A) OR (NOT B).',
-      rubric: [{ criteria_name: 'Logical equivalence verification', description: 'Accurately tests De Morgan distribution', max_points: 5, weight: 1.0 }],
-      max_marks: 5,
-      primary_trait: 'understanding',
-      secondary_trait_weight: 0.0,
-      difficulty: 'easy',
-      hint_1: 'Look closely at the central connective. Does AND remain AND when negated?',
-      hint_2: 'De Morgan states that conjunction AND flips to disjunction OR: NOT(A AND B) = (NOT A) OR (NOT B).',
-      evaluation_method: 'deterministic',
-      source_reference: 'Module 2: Propositional Logic and De Morgan Laws',
-    });
-  }
-
-  // 3. Application
-  if (targetTraits.includes('application')) {
-    packages.push({
-      question_text: 'Given a sorted array containing 1024 distinct numerical elements, what is the maximum number of comparisons required to determine if a target value exists?',
-      question_type: 'numeric',
-      correct_answer: '10',
-      accepted_variations: ['10', '10.0', '10 comparisons'],
-      reference_answer: '10 comparisons.',
-      explanation: 'Since log2(1024) = 10 (as 2^10 = 1024), Binary Search performs at most 10 comparisons.',
-      rubric: [{ criteria_name: 'Calculation accuracy', description: 'Calculates log2(1024) accurately', max_points: 5, weight: 1.0 }],
-      max_marks: 5,
-      primary_trait: 'application',
-      secondary_trait_weight: 0.0,
-      difficulty: 'medium',
-      hint_1: 'Express 1024 as a power of 2: 2 to what power equals 1024?',
-      hint_2: '2^8 = 256, 2^9 = 512, 2^10 = 1024. Therefore the maximum comparisons are 10.',
-      evaluation_method: 'deterministic',
-      numeric_tolerance: 0,
-      source_reference: 'Module 1: Search Bound Calculations',
-    });
-  }
-
-  // 4. Analysis
-  if (targetTraits.includes('analysis')) {
-    packages.push({
-      question_text: 'Which of the following properties are TRUE for Breadth-First Search (BFS)? (Select all that apply)',
-      question_type: 'multiple_select',
-      options: [
-        'Explores vertices using a First-In First-Out (FIFO) queue',
-        'Guarantees finding the shortest path on unweighted graphs',
-        'Has exponential memory complexity O(b^d) where b is branching factor',
-        'Uses a Last-In First-Out (LIFO) stack',
-      ],
-      correct_answer: 'Explores vertices using a First-In First-Out (FIFO) queue, Guarantees finding the shortest path on unweighted graphs, Has exponential memory complexity O(b^d) where b is branching factor',
-      accepted_variations: ['0,1,2', 'A,B,C'],
-      reference_answer: 'Statements 1, 2, and 3 are correct properties of BFS.',
-      explanation: 'BFS uses a FIFO queue, finds the shortest path on unweighted graphs, and requires exponential memory O(b^d). Stacks belong to DFS.',
-      rubric: [{ criteria_name: 'Structural analysis', description: 'Discriminates queue vs stack and space trade-offs', max_points: 5, weight: 1.0 }],
-      max_marks: 5,
-      primary_trait: 'analysis',
-      secondary_trait_weight: 0.0,
-      difficulty: 'medium',
-      hint_1: 'Recall that BFS visits vertices level by level in discovery order, requiring FIFO.',
-      hint_2: 'Three of the four statements are genuine BFS properties; LIFO stacks belong to DFS.',
-      evaluation_method: 'deterministic',
-      source_reference: 'Module 3: State-Space Search Properties',
-    });
-  }
-
-  // 5. Creativity
-  if (targetTraits.includes('creativity')) {
-    packages.push({
-      question_text: 'In heuristic search algorithms such as A*, a heuristic evaluation function h(n) is described as ________ if it never overestimates the actual minimal cost to achieve the goal.',
-      question_type: 'fill_in_blank',
-      correct_answer: 'admissible',
-      accepted_variations: ['admissible', 'Admissible', 'admissable', 'ADMISSIBLE'],
-      reference_answer: 'admissible',
-      explanation: 'An admissible heuristic provides an optimistic or exact estimate, which guarantees that A* will find an optimal path.',
-      rubric: [{ criteria_name: 'Term formulation', description: 'Supplies standard academic admissibility terminology', max_points: 5, weight: 1.0 }],
-      max_marks: 5,
-      primary_trait: 'creativity',
-      secondary_trait_weight: 0.0,
-      difficulty: 'medium',
-      hint_1: 'The term starts with "adm" and signifies that the estimate is permissible/acceptable for optimality.',
-      hint_2: 'The exact word is: a-d-m-i-s-s-i-b-l-e.',
-      evaluation_method: 'deterministic',
-      source_reference: 'Module 3: Heuristic Admissibility and Optimality',
-    });
-  }
-
-  // 6. Evaluation
-  if (targetTraits.includes('evaluation')) {
-    packages.push({
-      question_text: 'An automated guided vehicle must navigate a dense grid map with 64 KB of RAM. Memory overflow causes system shutdown. Graph paths contain cycles. Which search strategy is evaluated as most suitable?',
-      question_type: 'mcq',
-      options: [
-        'Unbounded Breadth-First Search (BFS)',
-        'Iterative Deepening Search with cycle check (IDDFS)',
-        'Depth-First Search without cycle detection',
-        'Bidirectional BFS with dual frontiers',
-      ],
-      correct_answer: 'Iterative Deepening Search with cycle check (IDDFS)',
-      accepted_variations: ['Iterative Deepening Search with cycle check (IDDFS)', 'IDDFS'],
-      reference_answer: 'Iterative Deepening Search (IDDFS).',
-      explanation: 'IDDFS guarantees finding the shortest path while retaining the linear memory efficiency O(b*d) of DFS, making it optimal for strict memory constraints.',
-      rubric: [{ criteria_name: 'Architectural evaluation', description: 'Justifies selection based on memory vs optimality constraints', max_points: 5, weight: 1.0 }],
-      max_marks: 5,
-      primary_trait: 'evaluation',
-      secondary_trait_weight: 0.0,
-      difficulty: 'hard',
-      hint_1: 'Evaluate the memory footprint: BFS requires exponential RAM, while DFS/IDDFS has linear RAM.',
-      hint_2: 'IDDFS combines the linear memory of DFS with the completeness and optimality of BFS.',
-      evaluation_method: 'deterministic',
-      source_reference: 'Module 3: Algorithmic Memory Constraints',
-    });
-  }
-
-  return packages;
+  return packages.slice(0, count);
 }
