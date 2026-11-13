@@ -20,28 +20,30 @@ export const QuestionTypeEnum = z.enum([
 export const DifficultyEnum = z.enum(['easy', 'medium', 'hard']);
 
 export const QuestionRubricItemSchema = z.object({
-  criteria_name: z.string().min(2),
-  description: z.string().min(5),
-  max_points: z.number().positive(),
-  weight: z.number().min(0).max(1).default(1),
+  criteria_name: z.string().default('Accuracy'),
+  description: z.string().default('Grounded correctness per lecture material'),
+  max_points: z.number().default(5),
+  weight: z.number().default(1),
 });
 
 export const QuestionPackageSchema = z.object({
-  question_text: z.string().min(10),
-  question_type: QuestionTypeEnum,
+  question_text: z.string().min(5),
+  question_type: QuestionTypeEnum.default('mcq'),
   options: z.array(z.string()).optional(),
   correct_answer: z.string().min(1),
   accepted_variations: z.array(z.string()).optional().default([]),
-  reference_answer: z.string().min(5),
-  explanation: z.string().min(10),
-  rubric: z.array(QuestionRubricItemSchema).min(1),
+  reference_answer: z.string().optional().default(''),
+  explanation: z.string().optional().default('Grounded in uploaded course material.'),
+  rubric: z.array(QuestionRubricItemSchema).optional().default([
+    { criteria_name: 'Correctness', description: 'Evaluated against lecture notes', max_points: 5, weight: 1.0 },
+  ]),
   max_marks: z.number().positive().default(5),
-  primary_trait: BloomTraitEnum,
+  primary_trait: BloomTraitEnum.default('understanding'),
   secondary_trait: BloomTraitEnum.optional(),
   secondary_trait_weight: z.number().min(0).max(0.5).optional().default(0.0),
-  difficulty: DifficultyEnum,
-  hint_1: z.string().min(10),
-  hint_2: z.string().min(10),
+  difficulty: DifficultyEnum.default('medium'),
+  hint_1: z.string().optional().default('Review the core concepts from the lecture text.'),
+  hint_2: z.string().optional().default('Focus on the specific definitions and properties presented in the material.'),
   evaluation_method: z.enum(['deterministic', 'hybrid']).default('deterministic'),
   numeric_tolerance: z.number().optional(),
   source_reference: z.string().optional(),

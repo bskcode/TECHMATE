@@ -445,27 +445,18 @@ export default function AssessmentsPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-bold text-gray-900">
-            Pre-Generated Question Packages ({questions.length})
+            Assessment Questions ({questions.length})
           </h3>
           <p className="text-xs text-gray-400 font-medium">
-            Each question contains pre-configured answer key, rubric weights, and exactly 2 progressive hints.
+            Review, edit, or configure rubrics and progressive hints for each mapped question.
           </p>
         </div>
 
         {questions.length === 0 ? (
-          <Card className="rounded-3xl border-dashed border-2 border-gray-200 bg-white p-12 text-center">
-            <BrainCircuit className="w-12 h-12 text-purple-300 mx-auto mb-3" />
-            <h4 className="text-sm font-bold text-gray-800">No questions in this assessment yet</h4>
-            <p className="text-xs text-gray-400 mt-1 max-w-sm mx-auto">
-              Click &quot;Generate Questions (Groq)&quot; above to have AI create complete question packages grounded in your
-              course materials.
+          <Card className="rounded-3xl border border-gray-100 bg-white p-8 text-center">
+            <p className="text-xs font-semibold text-gray-500">
+              No questions in this assessment yet. Use <span className="font-bold text-[#3E2D68]">&quot;Add Question&quot;</span> or <span className="font-bold text-[#3E2D68]">&quot;Generate Questions (Groq)&quot;</span> in the action bar above to add questions.
             </p>
-            <Button
-              onClick={() => setShowGenerateModal(true)}
-              className="mt-4 rounded-xl text-xs font-bold bg-[#3E2D68]"
-            >
-              <Sparkles className="w-4 h-4 mr-1.5 text-amber-300" /> Generate Questions Now
-            </Button>
           </Card>
         ) : (
           questions.map((q: any, idx: number) => (
@@ -624,15 +615,25 @@ export default function AssessmentsPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Number of Questions</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-gray-700">
+                    Exact Number of Questions to Generate
+                  </label>
+                  <span className="text-[11px] font-semibold text-[#3E2D68]">
+                    {questionCount} {questionCount === 1 ? 'question' : 'questions'}
+                  </span>
+                </div>
                 <input
                   type="number"
                   min={1}
-                  max={12}
+                  max={15}
                   value={questionCount}
-                  onChange={(e) => setQuestionCount(Number(e.target.value))}
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs focus:outline-none focus:border-[#3E2D68]"
+                  onChange={(e) => setQuestionCount(Math.max(1, Math.min(15, Number(e.target.value) || 1)))}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#3E2D68]"
                 />
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Groq LLM will generate exactly this number of questions derived strictly from your uploaded lecture PDF.
+                </p>
               </div>
 
               <div>

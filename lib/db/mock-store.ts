@@ -129,8 +129,8 @@ class MemoryDatabase {
     this.profiles.push(
       {
         id: '00000000-0000-0000-0000-000000000001',
-        email: 'faculty@adaptivelearn.ai',
-        full_name: 'Dr. Aris Thorne',
+        email: 'rajesh.sharma@adaptivelearn.ai',
+        full_name: 'Dr. Rajesh Sharma',
         role: 'faculty',
         avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
         institution: 'Smart Institute of Technology',
@@ -138,8 +138,8 @@ class MemoryDatabase {
       },
       {
         id: '00000000-0000-0000-0000-000000000002',
-        email: 'maya.lin@adaptivelearn.ai',
-        full_name: 'Dr. Maya Lin',
+        email: 'ananya.iyer@adaptivelearn.ai',
+        full_name: 'Dr. Ananya Iyer',
         role: 'faculty',
         avatar_url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150',
         institution: 'Smart Institute of Technology',
@@ -147,8 +147,8 @@ class MemoryDatabase {
       },
       {
         id: '00000000-0000-0000-0000-000000000003',
-        email: 'marcus.vance@adaptivelearn.ai',
-        full_name: 'Prof. Marcus Vance',
+        email: 'vikram.deshmukh@adaptivelearn.ai',
+        full_name: 'Prof. Vikram Deshmukh',
         role: 'faculty',
         avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
         institution: 'Smart Institute of Technology',
@@ -156,13 +156,13 @@ class MemoryDatabase {
       }
     );
 
-    // 2. 25 Student Profiles
+    // 2. 25 Indian Student Profiles
     const studentNames = [
-      'Branden Harris', 'Charles James', 'Mike Peter', 'Sophia Chen', 'Liam Garcia',
-      'Emma Watson', 'Noah Patel', 'Ava Rodriguez', 'Lucas Kim', 'Isabella Morales',
-      'Ethan Davis', 'Mia Taylor', 'Oliver Martinez', 'Charlotte Anderson', 'Benjamin Thomas',
-      'Amelia Jackson', 'Henry White', 'Harper Harris', 'Alexander Martin', 'Evelyn Thompson',
-      'Daniel Garcia', 'Aria Robinson', 'Matthew Clark', 'Scarlett Rodriguez', 'David Lewis'
+      'Aarav Patel', 'Rohan Mehta', 'Priya Nair', 'Aditya Verma', 'Sneha Kulkarni',
+      'Ishaan Gupta', 'Kavya Reddy', 'Rahul Joshi', 'Ananya Rao', 'Siddharth Malhotra',
+      'Neha Pillai', 'Arjun Das', 'Meera Nambiar', 'Karan Bhatia', 'Ritu Singhania',
+      'Devendra Prasad', 'Tanvi Saxena', 'Manish Chawla', 'Pooja Hegde', 'Vivek Sengupta',
+      'Shreya Mukherjee', 'Abhinav Mishra', 'Divya Srinivasan', 'Kunal Agrawal', 'Rhea Kapoor'
     ];
 
     studentNames.forEach((name, i) => {
@@ -517,7 +517,7 @@ Where $h^*(n)$ is the true shortest cost from node $n$ to the goal.
         creativity: 2,
         evaluation: 2,
       },
-      summary_narrative: 'Branden achieved exceptional improvement after completing the targeted remediation package in State-Space Search and Heuristics. Analysis increased by +45.0 percentage points, Creativity improved by +60.0 pp, and Evaluation improved by +30.0 pp.',
+      summary_narrative: 'Aarav achieved exceptional improvement after completing the targeted remediation package in State-Space Search and Heuristics. Analysis increased by +45.0 percentage points, Creativity improved by +60.0 pp, and Evaluation improved by +30.0 pp.',
       generated_at: new Date(Date.now() - 86400000).toISOString(),
     });
   }

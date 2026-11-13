@@ -31,8 +31,8 @@ interface AppContextValue {
 
 const DEFAULT_FACULTY: Profile = {
   id: '00000000-0000-0000-0000-000000000001',
-  email: 'faculty@adaptivelearn.ai',
-  full_name: 'Dr. Aris Thorne',
+  email: 'rajesh.sharma@adaptivelearn.ai',
+  full_name: 'Dr. Rajesh Sharma',
   role: 'faculty',
   avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
   institution: 'Smart Institute of Technology',
@@ -41,8 +41,8 @@ const DEFAULT_FACULTY: Profile = {
 
 const DEFAULT_STUDENT: Profile = {
   id: '00000000-0000-0000-0000-000000000101',
-  email: 'student1@adaptivelearn.ai',
-  full_name: 'Branden Harris',
+  email: 'aarav.patel@adaptivelearn.ai',
+  full_name: 'Aarav Patel',
   role: 'student',
   avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
   institution: 'Smart Institute of Technology',

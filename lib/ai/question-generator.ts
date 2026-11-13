@@ -66,21 +66,25 @@ export async function generateQuestionPackages(
 ${moduleTitle ? `Assessment / Module: ${moduleTitle}` : ''}
 Target Bloom Traits: ${targetTraits.join(', ')}
 Difficulty: ${difficulty}
-Total Questions Required: ${questionCount}
 
-APPROVED GROUNDING COURSE MATERIALS (QUESTIONS MUST COME FROM THIS TEXT ONLY):
+EXACT NUMBER OF QUESTIONS REQUIRED: ${questionCount}
+(MANDATORY: You MUST return an array containing EXACTLY ${questionCount} complete question objects. Count them before returning — there must be exactly ${questionCount} questions.)
+
+APPROVED UPLOADED LECTURE MATERIAL (ALL QUESTIONS MUST BE DERIVED STRICTLY FROM THIS TEXT ONLY):
 """
 ${groundingText.slice(0, 10000)}
 """
 
-CRITICAL REQUIREMENT:
-Generate questions derived EXCLUSIVELY from the text above. Do NOT include any concept, term, or question that is absent from this uploaded course material.
+CRITICAL GROUNDING DIRECTIVES:
+1. Every single question, answer option, correct answer, explanation, hint, and rubric criteria MUST be formulated EXCLUSIVELY and DIRECTLY from the uploaded lecture text above.
+2. Under NO circumstances should you introduce facts, terms, or topics that are absent from this text.
+3. The questions array MUST have a length of EXACTLY ${questionCount}.
 
 Generate a complete JSON object with the following structure:
 {
   "assessment_title": "...",
   "assessment_description": "...",
-  "questions": [ ... array of complete question packages ... ]
+  "questions": [ ... exactly ${questionCount} complete question packages ... ]
 }`;
 
   if (groqService.isConfigured()) {
@@ -88,12 +92,25 @@ Generate a complete JSON object with the following structure:
       const rawJson = await groqService.complete({
         systemPrompt: SYSTEM_PROMPT,
         userPrompt,
-        temperature: 0.2,
+        temperature: 0.1,
       });
 
       const parsed = JSON.parse(rawJson);
       const validated = AssessmentGenerationResponseSchema.parse(parsed);
-      return validated.questions;
+      const questions = validated.questions.map((q) => ({
+        ...q,
+        reference_answer: q.reference_answer || q.correct_answer,
+      }));
+
+      // Strictly return exactly questionCount as requested by user
+      if (questions.length >= questionCount) {
+        return questions.slice(0, questionCount);
+      }
+
+      // If Groq returned fewer than questionCount, pad with grounded questions to match exact count
+      const fallback = generateGroundedFallbackPackages(courseTitle, groundingText, targetTraits);
+      const combined = [...questions, ...fallback];
+      return combined.slice(0, questionCount);
     } catch (err: any) {
       console.warn('Groq question generation failed or invalid schema, falling back to grounded generator:', err.message);
     }

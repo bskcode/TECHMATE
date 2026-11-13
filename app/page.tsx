@@ -235,7 +235,7 @@ export default function LandingPage() {
                   </Button>
                 </Link>
                 <p className="text-center text-[11px] text-gray-400 mt-2 font-medium">
-                  Default demo: Dr. Aris Thorne (CS101 AI & Computing)
+                  Default demo: Dr. Rajesh Sharma (CS101 AI & Computing)
                 </p>
               </div>
             </div>
@@ -287,7 +287,7 @@ export default function LandingPage() {
                   </Button>
                 </Link>
                 <p className="text-center text-[11px] text-gray-400 mt-2 font-medium">
-                  Default demo: Branden Harris (CS101 Enrolled)
+                  Default demo: Aarav Patel (CS101 Enrolled)
                 </p>
               </div>
             </div>
