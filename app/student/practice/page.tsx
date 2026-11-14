@@ -37,7 +37,12 @@ export default function StudentPracticeCenter() {
       const list = iData.interventions || [];
       setInterventions(list);
 
-      const allQuestions = list.flatMap((inv: any) => inv.practice_questions || []);
+      const allQuestions = list.flatMap((inv: any) =>
+        (inv.practice_questions || []).map((pq: any) => ({
+          ...pq,
+          course: inv.course,
+        }))
+      );
       setPracticeQuestions(allQuestions);
 
       const priorAnswers: Record<string, string> = {};
@@ -127,6 +132,11 @@ export default function StudentPracticeCenter() {
               <Card key={pq.id} className="rounded-3xl border-none shadow-sm bg-white p-6 sm:p-8 space-y-5">
                 <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                   <div className="flex items-center space-x-2">
+                    {pq.course && (
+                      <Badge variant="secondary" className="text-[10px] font-bold bg-indigo-50 text-indigo-700">
+                        {pq.course.code}
+                      </Badge>
+                    )}
                     <span className="w-6 h-6 rounded-lg bg-purple-100 text-[#3E2D68] text-xs font-bold flex items-center justify-center">
                       #{idx + 1}
                     </span>
@@ -135,7 +145,7 @@ export default function StudentPracticeCenter() {
                     </Badge>
                   </div>
 
-                  <span className="text-xs font-semibold text-gray-400">Micro-Practice</span>
+                  <span className="text-xs font-semibold text-gray-400">Course-Grounded Micro-Practice</span>
                 </div>
 
                 <h3 className="text-sm sm:text-base font-bold text-gray-900 leading-relaxed">

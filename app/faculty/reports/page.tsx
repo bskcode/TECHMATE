@@ -5,7 +5,7 @@ import { Award, TrendingUp, User, ArrowUpRight, Printer, RefreshCw } from 'lucid
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 import { useApp } from '@/components/providers/app-provider';
 
 export default function FacultyReportsPage() {
@@ -72,7 +72,11 @@ export default function FacultyReportsPage() {
     trait: trait.charAt(0).toUpperCase() + trait.slice(1),
     improvement: info.delta,
     baseline: info.baseline,
+    progressive: info.progressive ?? info.baseline,
     final: info.final,
+    progressive_delta: info.progressive_delta ?? 0,
+    final_delta: info.final_delta ?? 0,
+    delta: info.delta,
     evidence: info.evidence_count,
     confidence: info.confidence,
   }));
@@ -86,7 +90,7 @@ export default function FacultyReportsPage() {
         <div>
           <h1 className="text-2xl font-black text-gray-900 tracking-tight">Student Trait Improvement Reports</h1>
           <p className="text-sm text-gray-500 font-medium">
-            Accreditation-grade comparative performance: Diagnostic Baseline vs Final Examination.
+            3-Stage Cognitive Mastery: Diagnostic Baseline → Progressive Formative → Final Examination.
           </p>
         </div>
 
@@ -151,10 +155,10 @@ export default function FacultyReportsPage() {
 
       {report ? (
         <div className="space-y-6">
-          {/* Top Score Comparison Banner */}
-          <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-[#3E2D68] to-[#584193] text-white p-8">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-center">
-              <div className="md:col-span-2 space-y-2">
+          {/* Top Score Comparison Banner: 3-Stage Mastery Progression */}
+          <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-[#3E2D68] to-[#584193] text-white p-6 sm:p-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+              <div className="lg:col-span-5 space-y-2">
                 <div className="flex items-center space-x-2 text-purple-200 text-xs font-semibold">
                   <User className="w-4 h-4" />
                   <span>{report.student?.full_name || 'Student'}</span>
@@ -163,7 +167,7 @@ export default function FacultyReportsPage() {
                   <span>•</span>
                   <span>{selectedCourse?.code}</span>
                 </div>
-                <h2 className="text-3xl font-black tracking-tight">
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
                   {report.score_improvement >= 0 ? `+${report.score_improvement}` : report.score_improvement} Percentage Points
                 </h2>
                 <p className="text-xs text-purple-100 leading-relaxed max-w-lg">
@@ -171,40 +175,77 @@ export default function FacultyReportsPage() {
                 </p>
               </div>
 
-              <div className="bg-white/10 rounded-2xl p-4 text-center backdrop-blur-sm">
-                <p className="text-[11px] font-bold text-purple-200 uppercase">Diagnostic Baseline</p>
-                <p className="text-3xl font-black mt-1">{report.baseline_score}%</p>
-              </div>
+              <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Stage 1: Diagnostic Baseline */}
+                <div className="bg-white/10 rounded-2xl p-4 text-center backdrop-blur-sm border border-white/10">
+                  <p className="text-[10px] font-bold text-purple-200 uppercase tracking-wider">1. Diagnostic Baseline</p>
+                  <p className="text-2xl sm:text-3xl font-black mt-1 text-white">{report.baseline_score}%</p>
+                  <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/10 text-purple-200">
+                    Pre-Intervention
+                  </span>
+                </div>
 
-              <div className="bg-emerald-500/20 border border-emerald-400/30 rounded-2xl p-4 text-center backdrop-blur-sm">
-                <p className="text-[11px] font-bold text-emerald-200 uppercase">Final Mastery</p>
-                <div className="flex items-center justify-center space-x-1 mt-1">
-                  <p className="text-3xl font-black text-emerald-300">{report.final_score}%</p>
-                  <ArrowUpRight className="w-6 h-6 text-emerald-300" />
+                {/* Stage 2: Progressive Assessment */}
+                <div className="bg-purple-400/20 rounded-2xl p-4 text-center backdrop-blur-sm border border-purple-300/30">
+                  <p className="text-[10px] font-bold text-purple-200 uppercase tracking-wider">2. Progressive Formative</p>
+                  <p className="text-2xl sm:text-3xl font-black mt-1 text-purple-200">
+                    {report.progressive_score !== undefined ? `${report.progressive_score}%` : 'N/A'}
+                  </p>
+                  {report.progressive_improvement !== undefined && (
+                    <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-300/30 text-purple-100">
+                      {report.progressive_improvement >= 0 ? `+${report.progressive_improvement}` : report.progressive_improvement} pp vs Diag
+                    </span>
+                  )}
+                </div>
+
+                {/* Stage 3: Final Mastery */}
+                <div className="bg-emerald-500/20 border border-emerald-400/40 rounded-2xl p-4 text-center backdrop-blur-sm">
+                  <p className="text-[10px] font-bold text-emerald-200 uppercase tracking-wider">3. Final Mastery</p>
+                  <div className="flex items-center justify-center space-x-1 mt-1">
+                    <p className="text-2xl sm:text-3xl font-black text-emerald-300">{report.final_score}%</p>
+                    <ArrowUpRight className="w-6 h-6 text-emerald-300" />
+                  </div>
+                  <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-emerald-200">
+                    {report.score_improvement >= 0 ? `+${report.score_improvement}` : report.score_improvement} pp Overall
+                  </span>
                 </div>
               </div>
             </div>
           </Card>
 
-          {/* Trait Growth Bar Chart + Evidence Table */}
+          {/* Trait Growth Grouped Bar Chart + Evidence Table */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <Card className="lg:col-span-7 rounded-3xl border-none shadow-sm bg-white p-6">
-              <CardHeader className="p-0 pb-4 border-b border-gray-50">
-                <CardTitle className="text-base font-bold text-gray-900">
-                  Bloom&apos;s Trait Delta (Percentage Points)
-                </CardTitle>
+              <CardHeader className="p-0 pb-4 border-b border-gray-50 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-bold text-gray-900">
+                    Bloom&apos;s Traits Mastery Progression
+                  </CardTitle>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Comparative scores: Diagnostic Baseline vs Progressive Formative vs Final Mastery
+                  </p>
+                </div>
+                <Badge variant="secondary" className="text-[10px] font-bold uppercase bg-indigo-100 text-indigo-800">
+                  3-Stage Trajectory
+                </Badge>
               </CardHeader>
-              <div className="h-72 w-full pt-4">
+              <div className="h-80 w-full pt-4">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
+                  <BarChart data={chartData} margin={{ top: 15, right: 15, left: -10, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                     <XAxis dataKey="trait" tick={{ fontSize: 11, fontWeight: 600 }} />
-                    <YAxis tick={{ fontSize: 10 }} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} unit="%" />
                     <Tooltip
-                      formatter={(val: any) => [`${val >= 0 ? '+' : ''}${val} pp`, 'Growth']}
+                      formatter={(val: any, name: string) => [`${val}%`, name]}
                       contentStyle={{ backgroundColor: '#1E293B', borderRadius: '12px', color: '#FFF' }}
                     />
-                    <Bar dataKey="improvement" fill="#22C55E" radius={[8, 8, 0, 0]} maxBarSize={44} />
+                    <Legend
+                      verticalAlign="top"
+                      wrapperStyle={{ paddingBottom: '10px', fontSize: '11px', fontWeight: 600 }}
+                    />
+                    <Bar dataKey="baseline" name="Diagnostic Baseline" fill="#6366F1" radius={[4, 4, 0, 0]} maxBarSize={22} />
+                    <Bar dataKey="progressive" name="Progressive Assessment" fill="#A855F7" radius={[4, 4, 0, 0]} maxBarSize={22} />
+                    <Bar dataKey="final" name="Final Examination" fill="#22C55E" radius={[4, 4, 0, 0]} maxBarSize={22} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -212,41 +253,61 @@ export default function FacultyReportsPage() {
 
             <Card className="lg:col-span-5 rounded-3xl border-none shadow-sm bg-white p-6">
               <CardHeader className="p-0 pb-4 border-b border-gray-50 flex flex-row items-center justify-between">
-                <CardTitle className="text-base font-bold text-gray-900">Evidence & Confidence</CardTitle>
+                <div>
+                  <CardTitle className="text-base font-bold text-gray-900">Bloom&apos;s Traits Delta</CardTitle>
+                  <p className="text-xs text-gray-400 mt-0.5">Stage-by-stage percentage points progression</p>
+                </div>
                 <Award className="w-5 h-5 text-emerald-600" />
               </CardHeader>
               <CardContent className="p-0 pt-4 space-y-3">
                 {chartData.map((row) => (
                   <div
                     key={row.trait}
-                    className="flex items-center justify-between p-3 rounded-2xl bg-[#F4F5FA] text-xs"
+                    className="flex flex-col p-3 rounded-2xl bg-[#F4F5FA] text-xs space-y-2 border border-gray-100"
                   >
-                    <div>
-                      <p className="font-bold text-gray-900">{row.trait}</p>
-                      <p className="text-[11px] text-gray-500">
-                        {row.baseline}% → {row.final}% ({row.evidence} evidences)
-                      </p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#3E2D68]" />
+                        <p className="font-bold text-gray-900 text-sm">{row.trait}</p>
+                      </div>
+                      <div className="flex items-center space-x-1.5">
+                        <span
+                          className={`font-black text-sm ${
+                            row.delta >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                          }`}
+                        >
+                          {row.delta >= 0 ? `+${row.delta}` : row.delta} pp
+                        </span>
+                        <Badge
+                          variant={
+                            row.confidence === 'high'
+                              ? 'emerald'
+                              : row.confidence === 'moderate'
+                              ? 'amber'
+                              : 'secondary'
+                          }
+                          className="text-[10px] uppercase font-bold"
+                        >
+                          {row.confidence}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <span
-                        className={`font-black ${
-                          row.improvement >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                        }`}
-                      >
-                        {row.improvement >= 0 ? `+${row.improvement}` : row.improvement}pp
-                      </span>
-                      <Badge
-                        variant={
-                          row.confidence === 'high'
-                            ? 'emerald'
-                            : row.confidence === 'moderate'
-                            ? 'amber'
-                            : 'secondary'
-                        }
-                        className="text-[10px] uppercase font-bold"
-                      >
-                        {row.confidence}
-                      </Badge>
+
+                    <div className="flex flex-wrap items-center justify-between text-[11px] text-gray-600 pt-1.5 border-t border-gray-200/60 gap-1">
+                      <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold">
+                          Diag: {row.baseline}%
+                        </span>
+                        <span>→</span>
+                        <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-semibold">
+                          Prog: {row.progressive}% ({row.progressive_delta >= 0 ? `+${row.progressive_delta}` : row.progressive_delta} pp)
+                        </span>
+                        <span>→</span>
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold">
+                          Final: {row.final}% ({row.final_delta >= 0 ? `+${row.final_delta}` : row.final_delta} pp)
+                        </span>
+                      </div>
+                      <span className="text-gray-400 text-[10px]">({row.evidence} evidences)</span>
                     </div>
                   </div>
                 ))}
@@ -257,8 +318,8 @@ export default function FacultyReportsPage() {
       ) : (
         <Card className="rounded-3xl border-dashed border-2 border-gray-200 bg-white p-12 text-center text-gray-400 text-xs">
           <TrendingUp className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-          <p className="font-bold text-gray-700">No report available for this student & course yet.</p>
-          <p className="mt-1">Ensure the course has diagnostic/final assessments and the student has completed an attempt.</p>
+          <p className="font-bold text-gray-700">No report available for this student &amp; course yet.</p>
+          <p className="mt-1">Ensure the course has diagnostic/progressive/final assessments and the student has completed an attempt.</p>
         </Card>
       )}
     </div>

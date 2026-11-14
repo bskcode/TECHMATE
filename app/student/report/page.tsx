@@ -86,27 +86,42 @@ export default function StudentFinalReportPage() {
 
       {report ? (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <Card className="rounded-2xl border-none shadow-sm bg-white p-6">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Diagnostic Baseline</p>
-              <h3 className="text-3xl font-black text-gray-900 mt-1">{report.baseline_score.toFixed(1)}%</h3>
-              <p className="text-[11px] text-gray-500 mt-1">Pre-intervention evaluation</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="rounded-2xl border-none shadow-sm bg-white p-5">
+              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">1. Diagnostic Baseline</p>
+              <h3 className="text-2xl sm:text-3xl font-black text-gray-900 mt-1">{report.baseline_score.toFixed(1)}%</h3>
+              <p className="text-[11px] text-gray-500 mt-1">Initial competency baseline</p>
             </Card>
 
-            <Card className="rounded-2xl border-none shadow-sm bg-white p-6">
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Final Examination</p>
-              <h3 className="text-3xl font-black text-[#3E2D68] mt-1">{report.final_score.toFixed(1)}%</h3>
-              <p className="text-[11px] text-gray-500 mt-1">With progressive 2-hint assistance</p>
+            <Card className="rounded-2xl border-none shadow-sm bg-purple-50/70 border border-purple-100 p-5">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-bold text-purple-700 uppercase tracking-wider">2. Progressive Formative</p>
+                {report.progressive_improvement !== undefined && (
+                  <Badge variant="secondary" className="text-[10px] font-bold bg-purple-100 text-purple-800">
+                    {report.progressive_improvement >= 0 ? `+${report.progressive_improvement.toFixed(1)}` : report.progressive_improvement.toFixed(1)} pp
+                  </Badge>
+                )}
+              </div>
+              <h3 className="text-2xl sm:text-3xl font-black text-purple-900 mt-1">
+                {report.progressive_score !== undefined ? `${report.progressive_score.toFixed(1)}%` : 'In Progress'}
+              </h3>
+              <p className="text-[11px] text-purple-600 mt-1">Formative evaluation with hints</p>
             </Card>
 
-            <Card className="rounded-2xl border-none shadow-sm bg-[#22C55E] text-white p-6 relative overflow-hidden">
-              <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Trait Growth</p>
-              <h3 className="text-3xl font-black mt-1">
+            <Card className="rounded-2xl border-none shadow-sm bg-white p-5">
+              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">3. Final Examination</p>
+              <h3 className="text-2xl sm:text-3xl font-black text-[#3E2D68] mt-1">{report.final_score.toFixed(1)}%</h3>
+              <p className="text-[11px] text-gray-500 mt-1">Summative final mastery</p>
+            </Card>
+
+            <Card className="rounded-2xl border-none shadow-sm bg-[#22C55E] text-white p-5 relative overflow-hidden">
+              <p className="text-[11px] font-bold text-white/80 uppercase tracking-wider">Trait Growth</p>
+              <h3 className="text-2xl sm:text-3xl font-black mt-1">
                 {report.score_improvement >= 0 ? '+' : ''}
                 {report.score_improvement.toFixed(1)} pp
               </h3>
               <p className="text-[11px] text-white/90 mt-1">Net percentage points gained</p>
-              <TrendingUp className="w-16 h-16 text-white/15 absolute -right-2 -bottom-2" />
+              <TrendingUp className="w-14 h-14 text-white/15 absolute -right-2 -bottom-2" />
             </Card>
           </div>
 

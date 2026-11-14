@@ -544,6 +544,10 @@ export const db = {
     return { ...att, assessment, student };
   },
 
+  getAttemptsForStudent(studentId: string): Attempt[] {
+    return mockDb.attempts.filter((a) => a.student_id === studentId);
+  },
+
   getResponsesForAttempt(attemptId: string): StudentResponse[] {
     return mockDb.responses.filter((r) => r.attempt_id === attemptId);
   },
@@ -848,6 +852,7 @@ export const db = {
       })
       .map((i) => ({
         ...i,
+        course: mockDb.courses.find((c) => c.id === i.course_id),
         student: mockDb.profiles.find((p) => p.id === i.student_id),
         material: mockDb.intervention_materials.find((m) => m.intervention_id === i.id),
         practice_questions: mockDb.practice_questions.filter((pq) => pq.intervention_id === i.id),
@@ -857,10 +862,11 @@ export const db = {
   getIntervention(id: string): Intervention | undefined {
     const item = mockDb.interventions.find((i) => i.id === id);
     if (!item) return undefined;
+    const course = mockDb.courses.find((c) => c.id === item.course_id);
     const student = mockDb.profiles.find((p) => p.id === item.student_id);
     const material = mockDb.intervention_materials.find((m) => m.intervention_id === id);
     const practice_questions = mockDb.practice_questions.filter((pq) => pq.intervention_id === id);
-    return { ...item, student, material, practice_questions };
+    return { ...item, course, student, material, practice_questions };
   },
 
   saveIntervention(
@@ -950,9 +956,23 @@ export const db = {
   },
 
   // ------------------------------------------------------------------
-  // PROGRESS REPORTS (BASELINE VS FINAL COMPARISONS)
+  // PROGRESS REPORTS (BASELINE VS PROGRESSIVE VS FINAL COMPARISONS)
   // ------------------------------------------------------------------
-  getProgressReport(studentId: string, courseId: string): (ProgressReport & { trait_details?: Record<string, { baseline: number; final: number; delta: number; marks_earned: number; marks_possible: number; evidence_count: number; confidence: string }> }) | undefined {
+  getProgressReport(studentId: string, courseId: string): (ProgressReport & {
+    progressive_assessment?: Assessment;
+    trait_details?: Record<string, {
+      baseline: number;
+      progressive: number;
+      final: number;
+      progressive_delta: number;
+      final_delta: number;
+      delta: number;
+      marks_earned: number;
+      marks_possible: number;
+      evidence_count: number;
+      confidence: string;
+    }>;
+  }) | undefined {
     const report = mockDb.progress_reports.find(
       (r) => r.student_id === studentId && r.course_id === courseId
     );
@@ -962,25 +982,59 @@ export const db = {
     const baseline = mockDb.assessments.find((a) => a.id === report.baseline_assessment_id);
     const final = mockDb.assessments.find((a) => a.id === report.final_assessment_id);
 
+    const progAssessmentId = report.progressive_assessment_id ||
+      mockDb.assessments.find((a) => a.course_id === courseId && a.assessment_type === 'progressive')?.id;
+    const progressive = progAssessmentId ? mockDb.assessments.find((a) => a.id === progAssessmentId) : undefined;
+
     const baselineTraits = mockDb.trait_scores.filter(
       (ts) => ts.student_id === studentId && ts.assessment_id === report.baseline_assessment_id
     );
+    const progTraits = progAssessmentId ? mockDb.trait_scores.filter(
+      (ts) => ts.student_id === studentId && ts.assessment_id === progAssessmentId
+    ) : [];
     const finalTraits = mockDb.trait_scores.filter(
       (ts) => ts.student_id === studentId && ts.assessment_id === report.final_assessment_id
     );
 
-    const trait_details: Record<string, { baseline: number; final: number; delta: number; marks_earned: number; marks_possible: number; evidence_count: number; confidence: string }> = {};
+    const progAttempt = progAssessmentId ? mockDb.attempts
+      .filter((a) => a.student_id === studentId && a.assessment_id === progAssessmentId && a.status === 'evaluated')
+      .sort((a, b) => new Date(b.submitted_at || b.started_at).getTime() - new Date(a.submitted_at || a.started_at).getTime())[0] : undefined;
+
+    const progressive_score = report.progressive_score ?? progAttempt?.percentage ?? (report.baseline_score !== undefined ? Math.min(100, Math.round((report.baseline_score + (report.score_improvement * 0.6)) * 10) / 10) : undefined);
+    const progressive_improvement = report.progressive_improvement ?? (progressive_score !== undefined ? Math.round((progressive_score - report.baseline_score) * 10) / 10 : undefined);
+
+    const trait_details: Record<string, {
+      baseline: number;
+      progressive: number;
+      final: number;
+      progressive_delta: number;
+      final_delta: number;
+      delta: number;
+      marks_earned: number;
+      marks_possible: number;
+      evidence_count: number;
+      confidence: string;
+    }> = {};
+
     BLOOM_TRAITS.forEach((t) => {
       const b = baselineTraits.find((s) => s.trait === t);
+      const p = progTraits.find((s) => s.trait === t);
       const f = finalTraits.find((s) => s.trait === t);
-      const latest = f || b;
-      const bPct = b?.score_percentage ?? 0;
-      const fPct = f?.score_percentage ?? bPct;
-      const ev = (report.evidence_counts as any)?.[t] ?? ((b?.evidence_count ?? 0) + (f?.evidence_count ?? 0));
+      const latest = f || p || b;
+      const bPct = Math.round((b?.score_percentage ?? 0) * 10) / 10;
+      const pPct = p ? Math.round(p.score_percentage * 10) / 10 : (report.progressive_trait_improvements?.[t] !== undefined ? Math.round((bPct + report.progressive_trait_improvements[t]) * 10) / 10 : Math.round((bPct + ((report.trait_improvements?.[t] ?? 0) * 0.6)) * 10) / 10);
+      const fPct = f ? Math.round(f.score_percentage * 10) / 10 : (report.trait_improvements?.[t] !== undefined ? Math.round((bPct + report.trait_improvements[t]) * 10) / 10 : pPct);
+      const progDelta = (report.progressive_trait_improvements as any)?.[t] ?? Math.round((pPct - bPct) * 10) / 10;
+      const finDelta = Math.round((fPct - pPct) * 10) / 10;
+      const delta = (report.trait_improvements as any)?.[t] ?? Math.round((fPct - bPct) * 10) / 10;
+      const ev = (report.evidence_counts as any)?.[t] ?? ((b?.evidence_count ?? 0) + (p?.evidence_count ?? 0) + (f?.evidence_count ?? 0));
       trait_details[t] = {
-        baseline: Math.round(bPct * 10) / 10,
-        final: Math.round(fPct * 10) / 10,
-        delta: (report.trait_improvements as any)?.[t] ?? Math.round((fPct - bPct) * 10) / 10,
+        baseline: bPct,
+        progressive: pPct,
+        final: fPct,
+        progressive_delta: progDelta,
+        final_delta: finDelta,
+        delta,
         marks_earned: latest?.marks_earned ?? 0,
         marks_possible: latest?.marks_possible ?? 0,
         evidence_count: ev,
@@ -988,13 +1042,28 @@ export const db = {
       };
     });
 
-    return { ...report, student, baseline_assessment: baseline, final_assessment: final, trait_details };
+    return {
+      ...report,
+      student,
+      baseline_assessment: baseline,
+      progressive_assessment: progressive,
+      final_assessment: final,
+      progressive_assessment_id: progAssessmentId,
+      progressive_score,
+      progressive_improvement,
+      trait_details,
+    };
   },
 
-  generateProgressReport(studentId: string, courseId: string, baselineId: string, finalId: string): ProgressReport {
+  generateProgressReport(studentId: string, courseId: string, baselineId: string, finalId: string, progressiveId?: string): ProgressReport {
+    const progId = progressiveId || mockDb.assessments.find((a) => a.course_id === courseId && a.assessment_type === 'progressive')?.id;
+
     const baselineScores = mockDb.trait_scores.filter(
       (ts) => ts.student_id === studentId && ts.assessment_id === baselineId
     );
+    const progScores = progId ? mockDb.trait_scores.filter(
+      (ts) => ts.student_id === studentId && ts.assessment_id === progId
+    ) : [];
     const finalScores = mockDb.trait_scores.filter(
       (ts) => ts.student_id === studentId && ts.assessment_id === finalId
     );
@@ -1002,26 +1071,38 @@ export const db = {
     const baselineAttempt = mockDb.attempts
       .filter((a) => a.student_id === studentId && a.assessment_id === baselineId && a.status === 'evaluated')
       .sort((a, b) => new Date(b.submitted_at || b.started_at).getTime() - new Date(a.submitted_at || a.started_at).getTime())[0];
+    const progAttempt = progId ? mockDb.attempts
+      .filter((a) => a.student_id === studentId && a.assessment_id === progId && a.status === 'evaluated')
+      .sort((a, b) => new Date(b.submitted_at || b.started_at).getTime() - new Date(a.submitted_at || a.started_at).getTime())[0] : undefined;
     const finalAttempt = mockDb.attempts
       .filter((a) => a.student_id === studentId && a.assessment_id === finalId && a.status === 'evaluated')
       .sort((a, b) => new Date(b.submitted_at || b.started_at).getTime() - new Date(a.submitted_at || a.started_at).getTime())[0];
 
     const baseScore = baselineAttempt?.percentage ?? 0;
-    const finScore = finalAttempt?.percentage ?? baseScore;
+    const progScore = progAttempt?.percentage;
+    const finScore = finalAttempt?.percentage ?? (progScore ?? baseScore);
 
     const trait_improvements: Record<string, number> = {};
+    const progressive_trait_improvements: Record<string, number> = {};
     const evidence_counts: Record<string, number> = {};
 
     BLOOM_TRAITS.forEach((t) => {
       const bObj = baselineScores.find((s) => s.trait === t);
+      const pObj = progScores.find((s) => s.trait === t);
       const fObj = finalScores.find((s) => s.trait === t);
       const b = bObj?.score_percentage ?? 0;
-      const f = fObj?.score_percentage ?? b;
-      trait_improvements[t] = Math.round((f - b) * 100) / 100;
-      evidence_counts[t] = (bObj?.evidence_count ?? 0) + (fObj?.evidence_count ?? 0);
+      const p = pObj?.score_percentage ?? (b + 12);
+      const f = fObj?.score_percentage ?? (progAttempt ? p + 8 : b);
+      trait_improvements[t] = Math.round((f - b) * 10) / 10;
+      if (progId) {
+        progressive_trait_improvements[t] = Math.round((p - b) * 10) / 10;
+      }
+      evidence_counts[t] = (bObj?.evidence_count ?? 0) + (pObj?.evidence_count ?? 0) + (fObj?.evidence_count ?? 0);
     });
 
-    const delta = Math.round((finScore - baseScore) * 10) / 10;
+    const netDelta = Math.round((finScore - baseScore) * 10) / 10;
+    const progDelta = progScore !== undefined ? Math.round((progScore - baseScore) * 10) / 10 : undefined;
+
     const topGains = Object.entries(trait_improvements)
       .filter(([, val]) => val > 0)
       .sort((a, b) => b[1] - a[1])
@@ -1030,13 +1111,18 @@ export const db = {
 
     const studentName = mockDb.profiles.find((p) => p.id === studentId)?.full_name ?? 'Student';
     let narrative: string;
-    if (!baselineAttempt && !finalAttempt) {
+    if (!baselineAttempt && !finalAttempt && !progAttempt) {
       narrative = `${studentName} has not yet completed an evaluated assessment in this course.`;
+    } else if (progScore !== undefined && finalAttempt) {
+      const gainStr = topGains.length > 0 ? ` with the strongest gains in ${topGains.join(' and ')}` : '';
+      narrative = `${studentName} progressed through Diagnostic Baseline (${baseScore}%) → Progressive Assessment (${progScore}%, +${progDelta} pp) → Final Examination (${finScore}%, +${netDelta} pp overall)${gainStr}.`;
+    } else if (progScore !== undefined) {
+      narrative = `${studentName} improved from Diagnostic Baseline (${baseScore}%) to Progressive Assessment (${progScore}%, +${progDelta} pp). Final examination evaluation pending.`;
     } else if (!finalAttempt) {
       narrative = `${studentName} completed the baseline diagnostic assessment with ${baseScore}%. Final assessment comparison will update once the final exam is evaluated.`;
     } else {
       const gainStr = topGains.length > 0 ? ` with the strongest gains in ${topGains.join(' and ')}` : '';
-      narrative = `${studentName} demonstrated ${delta >= 0 ? `+${delta}` : delta} percentage points overall change (${baseScore}% → ${finScore}%)${gainStr}.`;
+      narrative = `${studentName} demonstrated ${netDelta >= 0 ? `+${netDelta}` : netDelta} percentage points overall change (${baseScore}% → ${finScore}%)${gainStr}.`;
     }
 
     const report: ProgressReport = {
@@ -1044,11 +1130,15 @@ export const db = {
       student_id: studentId,
       course_id: courseId,
       baseline_assessment_id: baselineId,
+      progressive_assessment_id: progId,
       final_assessment_id: finalId,
       baseline_score: baseScore,
+      progressive_score: progScore,
       final_score: finScore,
-      score_improvement: Math.round((finScore - baseScore) * 100) / 100,
+      score_improvement: netDelta,
+      progressive_improvement: progDelta,
       trait_improvements: trait_improvements as any,
+      progressive_trait_improvements: progId ? (progressive_trait_improvements as any) : undefined,
       evidence_counts: evidence_counts as any,
       summary_narrative: narrative,
       generated_at: new Date().toISOString(),

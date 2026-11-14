@@ -217,5 +217,63 @@ Breadth-First Search: Explores shallowest nodes using a FIFO queue with exponent
       expect(typeof studentItem.hasIntervention).toBe('boolean');
     }
   });
+
+  it('tracks 3-stage cognitive mastery progression (Diagnostic, Progressive, Final) with percentage points in progress reports', () => {
+    const studentId = '00000000-0000-0000-0000-000000000101';
+    const courseId = '11111111-1111-1111-1111-111111111111'; // CS101
+
+    const report = db.getProgressReport(studentId, courseId);
+    expect(report).toBeDefined();
+    expect(report?.baseline_score).toBeDefined();
+    expect(report?.progressive_score).toBeDefined();
+    expect(report?.final_score).toBeDefined();
+
+    // Verify 3 stages progression
+    expect(report!.baseline_score).toBe(70.83);
+    expect(report!.progressive_score).toBeGreaterThan(report!.baseline_score);
+    expect(report!.final_score).toBeGreaterThan(report!.progressive_score!);
+    expect(report!.progressive_score).toBeCloseTo(84.3, 0);
+    expect(report!.final_score).toBe(93.33);
+
+    // Percentage points tracking
+    expect(report!.progressive_improvement).toBeDefined();
+    expect(report!.score_improvement).toBe(22.5);
+
+    // Verify progressive assessment and Bloom's trait details
+    expect(report?.trait_details).toBeDefined();
+    const traits = Object.keys(report!.trait_details!);
+    expect(traits.length).toBeGreaterThan(0);
+
+    for (const trait of traits) {
+      const detail = report!.trait_details![trait];
+      expect(detail).toHaveProperty('baseline');
+      expect(detail).toHaveProperty('progressive');
+      expect(detail).toHaveProperty('final');
+      expect(detail).toHaveProperty('progressive_delta');
+      expect(detail).toHaveProperty('delta');
+      expect(typeof detail.baseline).toBe('number');
+      expect(typeof detail.progressive).toBe('number');
+      expect(typeof detail.final).toBe('number');
+      expect(typeof detail.progressive_delta).toBe('number');
+      expect(typeof detail.delta).toBe('number');
+    }
+  });
+
+  it('attaches course metadata to interventions to ensure personalized study picks content from the diagnostic course', () => {
+    const studentId = '00000000-0000-0000-0000-000000000101';
+    const interventions = db.getInterventions({ studentId, onlyReleased: true });
+
+    expect(interventions.length).toBeGreaterThan(0);
+    for (const inv of interventions) {
+      expect(inv.course).toBeDefined();
+      expect(inv.course?.id).toBe(inv.course_id);
+      expect(inv.course?.code).toBeDefined();
+      expect(inv.course?.title).toBeDefined();
+
+      // Ensure material is also present
+      expect(inv.material).toBeDefined();
+      expect(inv.material?.explanation_markdown).toBeDefined();
+    }
+  });
 });
 

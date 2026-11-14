@@ -257,6 +257,7 @@ export interface Intervention {
   released_at?: string;
   created_at: string;
   completed_checklist_items?: number[];
+  course?: Course;
   student?: Profile;
   material?: InterventionMaterial;
   practice_questions?: PracticeQuestion[];

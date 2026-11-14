@@ -18,10 +18,11 @@ export async function GET(req: NextRequest) {
   if (!report) {
     const assessments = db.getAssessments(courseId);
     const baseline = assessments.find((a) => a.assessment_type === 'diagnostic') || assessments[0];
+    const progressive = assessments.find((a) => a.assessment_type === 'progressive');
     const final = assessments.find((a) => a.assessment_type === 'final') || assessments[assessments.length - 1];
 
     if (baseline && final) {
-      report = db.generateProgressReport(studentId, courseId, baseline.id, final.id);
+      report = db.generateProgressReport(studentId, courseId, baseline.id, final.id, progressive?.id);
     }
   }
 

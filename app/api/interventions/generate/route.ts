@@ -60,7 +60,16 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join('\n\n');
 
-    const attempt = diagnostic_attempt_id ? db.getAttempt(diagnostic_attempt_id) : undefined;
+    let attempt = diagnostic_attempt_id ? db.getAttempt(diagnostic_attempt_id) : undefined;
+    if (!attempt) {
+      const diagnosticAssessments = db.getAssessments(course_id).filter((a) => a.assessment_type === 'diagnostic');
+      const diagIds = diagnosticAssessments.map((a) => a.id);
+      const studentAttempts = db.getAttemptsForStudent(student_id).filter((a) => diagIds.includes(a.assessment_id) && a.status === 'evaluated');
+      if (studentAttempts.length > 0) {
+        attempt = studentAttempts[0];
+      }
+    }
+    const resolvedAttemptId = attempt?.id ?? diagnostic_attempt_id;
     const score = attempt?.percentage ?? 55;
 
     // Generate package grounded in course materials
@@ -78,7 +87,7 @@ export async function POST(req: NextRequest) {
       {
         student_id,
         course_id,
-        diagnostic_attempt_id,
+        diagnostic_attempt_id: resolvedAttemptId,
         weak_traits: (weak_traits || ['analysis', 'creativity']) as BloomTrait[],
         weak_outcomes: weak_outcomes || ['CO3'],
         status: 'pending_approval',
