@@ -24,6 +24,32 @@ describe('Technical Subject Questions & Cross-Course Isolation', () => {
     expect(isAdministrativeQuestion('Identify the following concept', 'CS101')).toBe(true);
     expect(isAdministrativeQuestion('Identify the following concept', 'CS8391')).toBe(true);
 
+    // Textbook, author, publisher, edition, and ISBN inquiries MUST be strictly detected and flagged as invalid
+    expect(
+      isAdministrativeQuestion('Who is the publisher of the textbook Artificial Intelligence: A Modern Approach?')
+    ).toBe(true);
+    expect(
+      isAdministrativeQuestion('Which publisher published the reference book?')
+    ).toBe(true);
+    expect(
+      isAdministrativeQuestion('Select the publisher for the prescribed course textbook', 'Pearson Education')
+    ).toBe(true);
+    expect(
+      isAdministrativeQuestion('Who is the author of Introduction to Algorithms?')
+    ).toBe(true);
+    expect(
+      isAdministrativeQuestion('Which edition of the textbook is prescribed for this semester?')
+    ).toBe(true);
+    expect(
+      isAdministrativeQuestion('What is the ISBN of the recommended reference book?')
+    ).toBe(true);
+    expect(
+      isAdministrativeQuestion('Who wrote the prescribed textbook for this module?')
+    ).toBe(true);
+    expect(
+      isAdministrativeQuestion('What is the publication year of the reference book?')
+    ).toBe(true);
+
     // Genuine technical questions must NOT be flagged
     expect(
       isAdministrativeQuestion('What is the worst-case time complexity of Binary Search?')
@@ -54,7 +80,15 @@ Credits: 4
 L-T-P-C: 3-0-0-3
 CS101
 Binary Search requires that the input array is sorted.
-Big-O Notation characterizes asymptotic runtime growth.`;
+Big-O Notation characterizes asymptotic runtime growth.
+
+TEXT BOOKS:
+1. Stuart Russell and Peter Norvig, "Artificial Intelligence: A Modern Approach", 4th Edition, Pearson Education, 2020.
+2. Thomas H. Cormen, Charles E. Leiserson, Ronald L. Rivest, Clifford Stein, "Introduction to Algorithms", 3rd Edition, MIT Press, 2009.
+
+REFERENCES:
+1. Elaine Rich, Kevin Knight, Shivashankar B. Nair, "Artificial Intelligence", 3rd Edition, Tata McGraw-Hill, 2017. ISBN 978-0070087705.
+2. Michael Sipser, "Introduction to the Theory of Computation", Cengage Learning, 2012.`;
 
     const sanitized = sanitizeTechnicalGroundingText(rawText);
     expect(sanitized).not.toContain('Course Code:');
@@ -65,6 +99,14 @@ Big-O Notation characterizes asymptotic runtime growth.`;
     expect(sanitized).not.toContain('Regulation: 2021');
     expect(sanitized).not.toContain('Term: Fall 2026');
     expect(sanitized).not.toContain('L-T-P-C:');
+    expect(sanitized).not.toContain('Pearson Education');
+    expect(sanitized).not.toContain('MIT Press');
+    expect(sanitized).not.toContain('Tata McGraw-Hill');
+    expect(sanitized).not.toContain('Cengage');
+    expect(sanitized).not.toContain('ISBN 978-0070087705');
+    expect(sanitized).not.toContain('Stuart Russell');
+    expect(sanitized).not.toContain('TEXT BOOKS');
+    expect(sanitized).not.toContain('REFERENCES');
     expect(sanitized).toContain('Binary Search requires that the input array is sorted.');
     expect(sanitized).toContain('Big-O Notation characterizes asymptotic runtime growth.');
   });
@@ -104,7 +146,11 @@ Regulation: 2021
 Binary Search: Divides the sorted search space in half with O(log N) comparisons.
 De Morgan Laws: Negation of conjunction yields disjunction of negations.
 Breadth-First Search: Explores shallowest nodes using a FIFO queue with exponential memory O(b^d).
-Depth-First Search: Explores deepest paths using a LIFO stack with linear memory O(b*d).`;
+Depth-First Search: Explores deepest paths using a LIFO stack with linear memory O(b*d).
+
+TEXT BOOKS:
+1. Stuart Russell, Artificial Intelligence, 4th edition, Pearson Education, 2020.
+2. Thomas Cormen, Introduction to Algorithms, MIT Press, 2009.`;
 
     const packages = generateGroundedFallbackPackages(
       'CS101: Introduction to Computer Science & AI',
@@ -116,19 +162,27 @@ Depth-First Search: Explores deepest paths using a LIFO stack with linear memory
 
     expect(packages.length).toBe(4);
     for (const pkg of packages) {
-      // Must NOT be an administrative question
+      // Must NOT be an administrative or publisher question
       expect(isAdministrativeQuestion(pkg.question_text)).toBe(false);
       expect(pkg.question_text).not.toContain('Course Code');
       expect(pkg.question_text).not.toContain('Subject Code');
       expect(pkg.question_text).not.toContain('CS101');
+      expect(pkg.question_text).not.toContain('Pearson');
+      expect(pkg.question_text).not.toContain('MIT Press');
+      expect(pkg.question_text).not.toContain('Russell');
+      expect(pkg.question_text).not.toContain('Cormen');
       expect(pkg.correct_answer).not.toBe('CS101');
       expect(pkg.correct_answer).not.toBe('Fall 2026');
       expect(pkg.correct_answer).not.toBe('Alan Turing');
       expect(pkg.correct_answer).not.toBe('2021');
+      expect(pkg.correct_answer).not.toContain('Pearson');
+      expect(pkg.correct_answer).not.toContain('MIT Press');
 
       for (const opt of pkg.options || []) {
         expect(opt).not.toBe('CS101');
         expect(opt).not.toContain('Subject Code');
+        expect(opt).not.toContain('Pearson');
+        expect(opt).not.toContain('MIT Press');
       }
     }
   });
