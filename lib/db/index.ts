@@ -81,6 +81,14 @@ export const db = {
     return newCourse;
   },
 
+  updateCourse(id: string, updates: Partial<Course>): Course | undefined {
+    const course = mockDb.courses.find((c) => c.id === id);
+    if (!course) return undefined;
+    Object.assign(course, updates);
+    mockDb.saveToDisk();
+    return course;
+  },
+
   enrollStudent(courseCode: string, studentId: string): { success: boolean; message: string; course?: Course } {
     const course = mockDb.courses.find(
       (c) => c.enrollment_code.toUpperCase() === courseCode.trim().toUpperCase()
@@ -145,6 +153,13 @@ export const db = {
     return true;
   },
 
+  clearModules(courseId: string): number {
+    const initial = mockDb.modules.length;
+    mockDb.modules = mockDb.modules.filter((m) => m.course_id !== courseId);
+    mockDb.saveToDisk();
+    return initial - mockDb.modules.length;
+  },
+
   getCourseOutcomes(courseId: string): CourseOutcome[] {
     return mockDb.course_outcomes.filter((co) => co.course_id === courseId);
   },
@@ -166,6 +181,13 @@ export const db = {
     mockDb.course_outcomes.splice(idx, 1);
     mockDb.saveToDisk();
     return true;
+  },
+
+  clearCourseOutcomes(courseId: string): number {
+    const initial = mockDb.course_outcomes.length;
+    mockDb.course_outcomes = mockDb.course_outcomes.filter((co) => co.course_id !== courseId);
+    mockDb.saveToDisk();
+    return initial - mockDb.course_outcomes.length;
   },
 
   // ------------------------------------------------------------------

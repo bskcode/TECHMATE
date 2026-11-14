@@ -24,7 +24,8 @@ export async function POST(
       course_id: params.id,
       title: title.trim(),
       description: description?.trim() || '',
-      order_index: existing.length + 1,
+      order_index: typeof body.order_index === 'number' ? body.order_index : existing.length + 1,
+      learning_objectives: Array.isArray(body.learning_objectives) ? body.learning_objectives : [],
     });
     return NextResponse.json({ success: true, module: created }, { status: 201 });
   } catch (err: any) {

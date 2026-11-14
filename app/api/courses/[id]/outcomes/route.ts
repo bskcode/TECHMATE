@@ -18,6 +18,7 @@ export async function POST(
       course_id: params.id,
       code: code.trim().toUpperCase(),
       description: description.trim(),
+      bloom_level: body.bloom_level ? String(body.bloom_level).toLowerCase() : undefined,
     });
     return NextResponse.json({ success: true, outcome: created }, { status: 201 });
   } catch (err: any) {

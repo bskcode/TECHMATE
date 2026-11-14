@@ -78,6 +78,7 @@ export interface Module {
   title: string;
   description?: string;
   order_index: number;
+  learning_objectives?: string[];
   created_at: string;
 }
 
@@ -86,6 +87,7 @@ export interface CourseOutcome {
   course_id: string;
   code: string; // e.g. CO1
   description: string;
+  bloom_level?: string;
   created_at: string;
 }
 
