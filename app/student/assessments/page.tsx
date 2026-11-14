@@ -45,6 +45,7 @@ export default function StudentAssessmentExamRoom() {
   // Student Answers & State Machine Tracking per question
   // questionId -> { currentAnswer, responseNumber (1,2,3), isFinalized, isCorrect, feedback, hint1Text, hint2Text, awardedMarks }
   const [questionStates, setQuestionStates] = useState<Record<string, any>>({});
+  const [diagnosticWeakTraits, setDiagnosticWeakTraits] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
   const [finalResult, setFinalResult] = useState<any>(null);
@@ -141,6 +142,7 @@ export default function StudentAssessmentExamRoom() {
     if (data.success) {
       setAttempt(data.attempt);
       setQuestions(data.questions || []);
+      setDiagnosticWeakTraits(data.diagnostic_weak_traits || []);
 
       const selectedAsmt = assessments.find((a) => a.id === aid);
       const limitMins = selectedAsmt?.time_limit_minutes || 30;
@@ -546,10 +548,15 @@ export default function StudentAssessmentExamRoom() {
               </div>
             </div>
 
-            <div className="pt-4 flex items-center justify-center space-x-3">
+            <div className="pt-4 flex flex-wrap items-center justify-center gap-3">
               <Link href="/student/traits">
                 <Button className="rounded-xl text-xs font-bold bg-[#3E2D68]">
-                  View Trait Radar Dashboard <ArrowRight className="w-4 h-4 ml-1" />
+                  View Trait Radar (Diag vs Prog) <ArrowRight className="w-4 h-4 ml-1" />
+                </Button>
+              </Link>
+              <Link href="/student/report">
+                <Button variant="outline" className="rounded-xl text-xs font-bold border-purple-200 text-[#3E2D68]">
+                  View Learning Gain (G) Report
                 </Button>
               </Link>
             </div>
@@ -598,6 +605,25 @@ export default function StudentAssessmentExamRoom() {
               </Button>
             </div>
           </div>
+
+          {/* Diagnostic Focus Notice for Progressive Assessment */}
+          {attempt?.assessment?.assessment_type === 'progressive' && diagnosticWeakTraits.length > 0 && (
+            <div className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200/80 rounded-2xl flex items-start space-x-3 text-xs text-purple-950 shadow-sm animate-fadeIn">
+              <Sparkles className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-purple-900 block text-sm mb-0.5">
+                  Targeted Progressive Focus Active
+                </span>
+                <p className="leading-relaxed text-purple-800">
+                  Questions are prioritized to address your diagnostic growth areas:{' '}
+                  <span className="font-bold text-[#3E2D68]">
+                    {diagnosticWeakTraits.map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join(' & ')}
+                  </span>.
+                  Incorrect answers unlock up to 2 progressive technical hints to guide you to mastery!
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Question Palette Indicator */}
           <div className="flex items-center space-x-2 overflow-x-auto pb-2">

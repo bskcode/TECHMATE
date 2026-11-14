@@ -86,6 +86,40 @@ export default function StudentFinalReportPage() {
 
       {report ? (
         <div className="space-y-6">
+          {/* Motivational Learning Gain (G) Showcase */}
+          <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-r from-[#3E2D68] via-[#503A82] to-[#22C55E] text-white p-6 sm:p-8 space-y-3 relative overflow-hidden">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary" className="bg-emerald-400 text-emerald-950 text-xs font-bold uppercase">
+                {report.learning_gain_interpretation || 'Mastery Leap'}
+              </Badge>
+              <span className="text-xs text-purple-200">
+                Metric: Formative Learning Gain G = (Progressive - Diagnostic) / Max Score
+              </span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
+                Cognitive Learning Gain (G):{' '}
+                <span className="text-emerald-300">
+                  {report.learning_gain_g !== undefined
+                    ? `${report.learning_gain_g >= 0 ? '+' : ''}${report.learning_gain_g}%`
+                    : `+${report.score_improvement}%`}
+                </span>
+              </h2>
+              <span className="text-xs font-semibold text-purple-200">
+                Progression: {report.baseline_score.toFixed(1)}% →{' '}
+                {report.progressive_score !== undefined
+                  ? `${report.progressive_score.toFixed(1)}%`
+                  : `${report.final_score.toFixed(1)}%`}
+              </span>
+            </div>
+
+            <p className="text-xs sm:text-sm text-purple-100 max-w-2xl leading-relaxed">
+              {report.motivational_message ||
+                'Outstanding work! Your progressive assessment performance demonstrates that formative hints helped you master foundational concepts and turn diagnostic learning gaps into genuine cognitive strengths.'}
+            </p>
+          </Card>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="rounded-2xl border-none shadow-sm bg-white p-5">
               <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">1. Diagnostic Baseline</p>

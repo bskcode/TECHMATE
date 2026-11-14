@@ -22,6 +22,8 @@ import {
   PolarAngleAxis,
   PolarRadiusAxis,
   Radar,
+  Legend,
+  Tooltip,
 } from 'recharts';
 import { useApp } from '@/components/providers/app-provider';
 
@@ -88,7 +90,10 @@ export default function StudentDashboard() {
   const traitDetails = report?.trait_details || {};
   const traitRadarData = Object.entries(traitDetails).map(([trait, info]: [string, any]) => ({
     trait: trait.charAt(0).toUpperCase() + trait.slice(1),
-    score: info.final ?? 0,
+    diagnostic: info.baseline ?? 0,
+    progressive: info.progressive ?? info.baseline ?? 0,
+    final: info.final ?? info.progressive ?? 0,
+    score: info.progressive ?? info.final ?? 0,
   }));
 
   const sortedTraits = [...traitRadarData].sort((a, b) => b.score - a.score);
@@ -307,18 +312,30 @@ export default function StudentDashboard() {
                 Complete an assessment to view your Bloom&apos;s Taxonomy radar.
               </div>
             ) : (
-              <div className="h-64 w-full pt-4">
+              <div className="h-64 w-full pt-2">
                 <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={traitRadarData}>
+                  <RadarChart data={traitRadarData} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
                     <PolarGrid stroke="#E2E8F0" />
                     <PolarAngleAxis dataKey="trait" tick={{ fill: '#334155', fontSize: 10, fontWeight: 700 }} />
                     <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 9 }} />
+                    <Tooltip
+                      formatter={(val: any, name: string) => [`${val}%`, name]}
+                      contentStyle={{ backgroundColor: '#1E293B', borderRadius: '12px', color: '#FFF' }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 600, paddingTop: '6px' }} />
                     <Radar
-                      name="My Score"
-                      dataKey="score"
-                      stroke="#22C55E"
-                      fill="#22C55E"
-                      fillOpacity={0.35}
+                      name="Diagnostic"
+                      dataKey="diagnostic"
+                      stroke="#6366F1"
+                      fill="#6366F1"
+                      fillOpacity={0.25}
+                    />
+                    <Radar
+                      name="Progressive"
+                      dataKey="progressive"
+                      stroke="#A855F7"
+                      fill="#A855F7"
+                      fillOpacity={0.4}
                     />
                   </RadarChart>
                 </ResponsiveContainer>

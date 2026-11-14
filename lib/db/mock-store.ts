@@ -782,6 +782,9 @@ Where $h^*(n)$ is the true shortest cost from node $n$ to the goal.
       final_score: 93.33,
       score_improvement: 22.5,
       progressive_improvement: 13.34,
+      learning_gain_g: 13.34,
+      learning_gain_interpretation: 'Substantial Mastery Leap (High Gain)',
+      motivational_message: 'Outstanding cognitive acceleration! Your progressive assessment learning gain of +13.3% shows you turned diagnostic friction in Analysis and Creativity into major mastery breakthroughs!',
       trait_improvements: {
         remembering: 0.0,
         understanding: 0.0,

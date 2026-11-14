@@ -275,5 +275,33 @@ Breadth-First Search: Explores shallowest nodes using a FIFO queue with exponent
       expect(inv.material?.explanation_markdown).toBeDefined();
     }
   });
+
+  it('identifies diagnostic weak traits and calculates Learning Gain G on maximum score', () => {
+    const studentId = '00000000-0000-0000-0000-000000000101';
+    const courseId = '11111111-1111-1111-1111-111111111111'; // CS101
+
+    // 1. Identify weak traits from diagnostic evaluation
+    const weakTraits = db.getStudentDiagnosticWeakTraits(studentId, courseId);
+    expect(weakTraits.length).toBeGreaterThan(0);
+    expect(weakTraits).toContain('analysis');
+
+    // 2. Report includes Learning Gain (G)
+    const report = db.getProgressReport(studentId, courseId);
+    expect(report).toBeDefined();
+    expect(report?.learning_gain_g).toBeDefined();
+    expect(report!.learning_gain_g!).toBeGreaterThan(0);
+    expect(report?.learning_gain_interpretation).toBeDefined();
+    expect(report?.motivational_message).toBeDefined();
+    expect(report!.motivational_message!).toContain('learning gain');
+
+    // 3. Trait details contain both diagnostic baseline and progressive formative profiles
+    const traits = Object.keys(report!.trait_details!);
+    for (const t of traits) {
+      const detail = report!.trait_details![t];
+      expect(typeof detail.baseline).toBe('number');
+      expect(typeof detail.progressive).toBe('number');
+      expect(typeof detail.progressive_delta).toBe('number');
+    }
+  });
 });
 

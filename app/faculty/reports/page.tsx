@@ -155,10 +155,10 @@ export default function FacultyReportsPage() {
 
       {report ? (
         <div className="space-y-6">
-          {/* Top Score Comparison Banner: 3-Stage Mastery Progression */}
+          {/* Top Score Comparison Banner: 3-Stage Mastery Progression & Learning Gain (G) */}
           <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-[#3E2D68] to-[#584193] text-white p-6 sm:p-8">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-              <div className="lg:col-span-5 space-y-2">
+              <div className="lg:col-span-4 space-y-2">
                 <div className="flex items-center space-x-2 text-purple-200 text-xs font-semibold">
                   <User className="w-4 h-4" />
                   <span>{report.student?.full_name || 'Student'}</span>
@@ -175,38 +175,49 @@ export default function FacultyReportsPage() {
                 </p>
               </div>
 
-              <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {/* Stage 1: Diagnostic Baseline */}
-                <div className="bg-white/10 rounded-2xl p-4 text-center backdrop-blur-sm border border-white/10">
-                  <p className="text-[10px] font-bold text-purple-200 uppercase tracking-wider">1. Diagnostic Baseline</p>
-                  <p className="text-2xl sm:text-3xl font-black mt-1 text-white">{report.baseline_score}%</p>
-                  <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/10 text-purple-200">
+                <div className="bg-white/10 rounded-2xl p-3.5 text-center backdrop-blur-sm border border-white/10 flex flex-col justify-between">
+                  <p className="text-[10px] font-bold text-purple-200 uppercase tracking-wider">1. Diagnostic</p>
+                  <p className="text-xl sm:text-2xl font-black my-1 text-white">{report.baseline_score}%</p>
+                  <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-white/10 text-purple-200">
                     Pre-Intervention
                   </span>
                 </div>
 
                 {/* Stage 2: Progressive Assessment */}
-                <div className="bg-purple-400/20 rounded-2xl p-4 text-center backdrop-blur-sm border border-purple-300/30">
-                  <p className="text-[10px] font-bold text-purple-200 uppercase tracking-wider">2. Progressive Formative</p>
-                  <p className="text-2xl sm:text-3xl font-black mt-1 text-purple-200">
+                <div className="bg-purple-400/20 rounded-2xl p-3.5 text-center backdrop-blur-sm border border-purple-300/30 flex flex-col justify-between">
+                  <p className="text-[10px] font-bold text-purple-200 uppercase tracking-wider">2. Progressive</p>
+                  <p className="text-xl sm:text-2xl font-black my-1 text-purple-200">
                     {report.progressive_score !== undefined ? `${report.progressive_score}%` : 'N/A'}
                   </p>
-                  {report.progressive_improvement !== undefined && (
-                    <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-300/30 text-purple-100">
-                      {report.progressive_improvement >= 0 ? `+${report.progressive_improvement}` : report.progressive_improvement} pp vs Diag
-                    </span>
-                  )}
+                  <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-purple-300/30 text-purple-100">
+                    {report.progressive_improvement !== undefined ? `${report.progressive_improvement >= 0 ? '+' : ''}${report.progressive_improvement} pp` : 'In Progress'}
+                  </span>
+                </div>
+
+                {/* Normalized Learning Gain (G) */}
+                <div className="bg-gradient-to-br from-amber-500/20 to-emerald-500/20 rounded-2xl p-3.5 text-center backdrop-blur-sm border border-emerald-400/30 flex flex-col justify-between">
+                  <div className="flex items-center justify-center space-x-1">
+                    <p className="text-[10px] font-bold text-amber-200 uppercase tracking-wider">Gain (G)</p>
+                  </div>
+                  <p className="text-xl sm:text-2xl font-black my-1 text-emerald-300">
+                    {report.learning_gain_g !== undefined ? `+${report.learning_gain_g}%` : `${report.score_improvement >= 0 ? '+' : ''}${report.score_improvement}%`}
+                  </p>
+                  <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-400/30 text-emerald-200 truncate" title="G = (Progressive - Diagnostic) / Max Score">
+                    {report.learning_gain_interpretation?.split(' ')[0] || 'High'} Gain
+                  </span>
                 </div>
 
                 {/* Stage 3: Final Mastery */}
-                <div className="bg-emerald-500/20 border border-emerald-400/40 rounded-2xl p-4 text-center backdrop-blur-sm">
+                <div className="bg-emerald-500/20 border border-emerald-400/40 rounded-2xl p-3.5 text-center backdrop-blur-sm flex flex-col justify-between">
                   <p className="text-[10px] font-bold text-emerald-200 uppercase tracking-wider">3. Final Mastery</p>
-                  <div className="flex items-center justify-center space-x-1 mt-1">
-                    <p className="text-2xl sm:text-3xl font-black text-emerald-300">{report.final_score}%</p>
-                    <ArrowUpRight className="w-6 h-6 text-emerald-300" />
+                  <div className="flex items-center justify-center space-x-0.5 my-1">
+                    <p className="text-xl sm:text-2xl font-black text-emerald-300">{report.final_score}%</p>
+                    <ArrowUpRight className="w-4 h-4 text-emerald-300" />
                   </div>
-                  <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-emerald-200">
-                    {report.score_improvement >= 0 ? `+${report.score_improvement}` : report.score_improvement} pp Overall
+                  <span className="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/30 text-emerald-200">
+                    {report.score_improvement >= 0 ? `+${report.score_improvement}` : report.score_improvement} pp Net
                   </span>
                 </div>
               </div>

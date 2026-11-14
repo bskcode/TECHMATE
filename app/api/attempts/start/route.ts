@@ -28,7 +28,23 @@ export async function POST(req: NextRequest) {
     const attempt = db.getOrCreateAttempt(assessment_id, student_id);
 
     // Fetch sanitized questions (strictly no answer keys or locked hints!)
-    const questions = db.getQuestions(assessment_id, false);
+    let questions = db.getQuestions(assessment_id, false);
+
+    // If progressive assessment, prioritize questions handling the student's diagnostic weak areas!
+    let diagnosticWeakTraits: string[] = [];
+    if (assessment.assessment_type === 'progressive') {
+      diagnosticWeakTraits = db.getStudentDiagnosticWeakTraits(student_id, assessment.course_id);
+      if (diagnosticWeakTraits.length > 0) {
+        const weakSet = new Set(diagnosticWeakTraits);
+        questions = [...questions].sort((a, b) => {
+          const aMatch = weakSet.has(a.primary_trait) || (a.secondary_trait && weakSet.has(a.secondary_trait));
+          const bMatch = weakSet.has(b.primary_trait) || (b.secondary_trait && weakSet.has(b.secondary_trait));
+          if (aMatch && !bMatch) return -1;
+          if (!aMatch && bMatch) return 1;
+          return a.order_index - b.order_index;
+        });
+      }
+    }
 
     // Fetch any previously recorded responses for this attempt
     const responses = db.getResponsesForAttempt(attempt.id);
@@ -42,6 +58,7 @@ export async function POST(req: NextRequest) {
       questions,
       responses,
       hintEvents,
+      diagnostic_weak_traits: diagnosticWeakTraits,
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

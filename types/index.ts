@@ -315,6 +315,9 @@ export interface ProgressReport {
   final_score: number;
   score_improvement: number; // final - baseline (in percentage points)
   progressive_improvement?: number; // progressive - baseline (in percentage points)
+  learning_gain_g?: number; // Normalized learning gain G = (progressive_score - baseline_score) / max_score * 100%
+  learning_gain_interpretation?: string; // Pedagogic interpretation e.g. "Substantial Mastery Leap (High Gain)"
+  motivational_message?: string; // Motivational coaching message for student
   trait_improvements: Record<BloomTrait, number>; // in percentage points
   progressive_trait_improvements?: Record<BloomTrait, number>; // in percentage points
   evidence_counts: Record<BloomTrait, number>;

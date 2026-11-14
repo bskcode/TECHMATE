@@ -26,6 +26,7 @@ import {
   PracticeAttempt,
   ProgressReport,
   QuestionPackage,
+  BloomTrait,
 } from '@/types';
 import { processProgressiveSubmission, ProcessSubmissionResult } from '../engine/hint-machine';
 import { calculateTraitScores, BLOOM_TRAITS } from '../engine/trait-calculator';
@@ -715,7 +716,56 @@ export const db = {
     }
 
     mockDb.saveToDisk();
+
+    // Automatically reflect attempt finalization in improvement reports!
+    try {
+      const courseAssessments = mockDb.assessments.filter((a) => a.course_id === assessment.course_id);
+      const baseline = courseAssessments.find((a) => a.assessment_type === 'diagnostic') || courseAssessments[0];
+      const prog = courseAssessments.find((a) => a.assessment_type === 'progressive');
+      const fin = courseAssessments.find((a) => a.assessment_type === 'final') || courseAssessments[courseAssessments.length - 1];
+
+      if (baseline && (prog || fin)) {
+        this.generateProgressReport(attempt.student_id, assessment.course_id, baseline.id, fin ? fin.id : baseline.id, prog?.id);
+      }
+    } catch {
+      // Silently continue if assessments are still being initialized
+    }
+
     return attempt;
+  },
+
+  getStudentDiagnosticWeakTraits(studentId: string, courseId: string): BloomTrait[] {
+    const diagnosticAssessments = mockDb.assessments.filter(
+      (a) => a.course_id === courseId && a.assessment_type === 'diagnostic'
+    );
+    const diagIds = diagnosticAssessments.map((a) => a.id);
+
+    // Look for evaluated diagnostic attempts for this student
+    const diagAttempts = mockDb.attempts
+      .filter((a) => a.student_id === studentId && diagIds.includes(a.assessment_id) && a.status === 'evaluated')
+      .sort((a, b) => new Date(b.submitted_at || b.started_at).getTime() - new Date(a.submitted_at || a.started_at).getTime());
+
+    if (diagAttempts.length === 0) {
+      return ['analysis', 'creativity'];
+    }
+
+    const latestAttempt = diagAttempts[0];
+    const scores = mockDb.trait_scores.filter(
+      (ts) => ts.attempt_id === latestAttempt.id || (ts.student_id === studentId && ts.assessment_id === latestAttempt.assessment_id)
+    );
+
+    if (scores.length === 0) {
+      return ['analysis', 'creativity'];
+    }
+
+    // Sort by score_percentage ascending
+    const sorted = [...scores].sort((a, b) => a.score_percentage - b.score_percentage);
+    // Find traits below 75% or the 2 lowest
+    const belowThreshold = sorted.filter((s) => s.score_percentage < 75).map((s) => s.trait);
+    if (belowThreshold.length >= 2) {
+      return Array.from(new Set(belowThreshold));
+    }
+    return Array.from(new Set(sorted.slice(0, 2).map((s) => s.trait)));
   },
 
   // ------------------------------------------------------------------
@@ -1042,6 +1092,35 @@ export const db = {
       };
     });
 
+    const g = progressive_score !== undefined && report.baseline_score !== undefined
+      ? Math.round((progressive_score - report.baseline_score) * 10) / 10
+      : undefined;
+
+    let learning_gain_interpretation = report.learning_gain_interpretation;
+    let motivational_message = report.motivational_message;
+
+    if (g !== undefined) {
+      if (!learning_gain_interpretation) {
+        if (g >= 20) learning_gain_interpretation = 'Exceptional Cognitive Acceleration (High Gain)';
+        else if (g >= 10) learning_gain_interpretation = 'Substantial Mastery Leap (High Gain)';
+        else if (g > 0) learning_gain_interpretation = 'Positive Formative Progression (Steady Gain)';
+        else learning_gain_interpretation = 'Formative Reinforcement in Progress';
+      }
+
+      if (!motivational_message) {
+        const studentName = student?.full_name ? student.full_name.split(' ')[0] : 'Student';
+        if (g >= 20) {
+          motivational_message = `Incredible leap, ${studentName}! Your learning gain (G) of +${g}% represents high-gain acceleration, proving you successfully conquered prior diagnostic weak areas!`;
+        } else if (g >= 10) {
+          motivational_message = `Outstanding breakthrough, ${studentName}! With a learning gain (G) of +${g}%, you resolved critical diagnostic gaps through progressive hint mastery!`;
+        } else if (g > 0) {
+          motivational_message = `Great momentum, ${studentName}! You achieved a positive learning gain (G) of +${g}%. Keep pushing to turn this growth into final exam mastery!`;
+        } else {
+          motivational_message = `You are on the path to mastery, ${studentName}! Review your targeted study guides and practice analogies to boost your learning gain on the next assessment.`;
+        }
+      }
+    }
+
     return {
       ...report,
       student,
@@ -1051,6 +1130,9 @@ export const db = {
       progressive_assessment_id: progAssessmentId,
       progressive_score,
       progressive_improvement,
+      learning_gain_g: report.learning_gain_g ?? g,
+      learning_gain_interpretation,
+      motivational_message,
       trait_details,
     };
   },
@@ -1125,6 +1207,28 @@ export const db = {
       narrative = `${studentName} demonstrated ${netDelta >= 0 ? `+${netDelta}` : netDelta} percentage points overall change (${baseScore}% → ${finScore}%)${gainStr}.`;
     }
 
+    const g = progScore !== undefined ? Math.round((progScore - baseScore) * 10) / 10 : undefined;
+    let learning_gain_interpretation: string | undefined = undefined;
+    let motivational_message: string | undefined = undefined;
+
+    if (g !== undefined) {
+      if (g >= 20) learning_gain_interpretation = 'Exceptional Cognitive Acceleration (High Gain)';
+      else if (g >= 10) learning_gain_interpretation = 'Substantial Mastery Leap (High Gain)';
+      else if (g > 0) learning_gain_interpretation = 'Positive Formative Progression (Steady Gain)';
+      else learning_gain_interpretation = 'Formative Reinforcement in Progress';
+
+      const shortName = studentName.split(' ')[0];
+      if (g >= 20) {
+        motivational_message = `Incredible leap, ${shortName}! Your learning gain (G) of +${g}% represents high-gain acceleration, proving you successfully conquered prior diagnostic weak areas!`;
+      } else if (g >= 10) {
+        motivational_message = `Outstanding breakthrough, ${shortName}! With a learning gain (G) of +${g}%, you resolved critical diagnostic gaps through progressive hint mastery!`;
+      } else if (g > 0) {
+        motivational_message = `Great momentum, ${shortName}! You achieved a positive learning gain (G) of +${g}%. Keep pushing to turn this growth into final exam mastery!`;
+      } else {
+        motivational_message = `You are on the path to mastery, ${shortName}! Review your targeted study guides and practice analogies to boost your learning gain on the next assessment.`;
+      }
+    }
+
     const report: ProgressReport = {
       id: crypto.randomUUID(),
       student_id: studentId,
@@ -1137,6 +1241,9 @@ export const db = {
       final_score: finScore,
       score_improvement: netDelta,
       progressive_improvement: progDelta,
+      learning_gain_g: g,
+      learning_gain_interpretation,
+      motivational_message,
       trait_improvements: trait_improvements as any,
       progressive_trait_improvements: progId ? (progressive_trait_improvements as any) : undefined,
       evidence_counts: evidence_counts as any,
