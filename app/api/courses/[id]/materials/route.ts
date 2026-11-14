@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { extractTextFromBuffer } from '@/lib/documents/parser';
+import { generateModuleNotes } from '@/lib/ai/notes-generator';
+import { extractSyllabusFallback } from '@/lib/ai/syllabus-extractor';
 
 export async function GET(
   req: NextRequest,
@@ -63,12 +65,68 @@ export async function POST(
       extracted_text: extractedText,
       character_count: characterCount,
       processing_status: 'completed',
-      approval_status: 'approved', // Auto-approved for fast authoring, or pending
+      approval_status: 'approved',
     });
 
-    return NextResponse.json({ success: true, material });
+    // Automatically generate module-wise study notes for the course
+    const course = db.getCourse(params.id);
+    let modules = db.getModules(params.id);
+
+    // If course has no modules yet, automatically extract modules from material
+    if (modules.length === 0 && extractedText.length > 50) {
+      const extracted = extractSyllabusFallback(extractedText, course?.code, course?.title);
+      modules = extracted.modules.map((m, idx) => {
+        return db.createModule({
+          course_id: params.id,
+          title: m.title,
+          description: m.description,
+          order_index: idx + 1,
+          learning_objectives: m.learning_objectives,
+        });
+      });
+      extracted.course_outcomes.forEach((co) => {
+        db.createCourseOutcome({
+          course_id: params.id,
+          code: co.code,
+          description: co.description,
+          bloom_level: co.bloom_level,
+        });
+      });
+    }
+
+    // Generate module-wise study notes
+    let notesCount = 0;
+    if (course && modules.length > 0) {
+      const targetModules = module_id
+        ? modules.filter((m) => m.id === module_id)
+        : modules;
+
+      for (const mod of targetModules) {
+        try {
+          const notesMarkdown = await generateModuleNotes({
+            courseTitle: `${course.code}: ${course.title}`,
+            moduleTitle: mod.title,
+            moduleOrder: mod.order_index,
+            moduleDescription: mod.description,
+            learningObjectives: mod.learning_objectives,
+            groundingText: extractedText,
+          });
+
+          db.updateModule(mod.id, { notes_markdown: notesMarkdown });
+          notesCount++;
+        } catch (e: any) {
+          console.warn(`Error generating notes for module ${mod.title}:`, e.message);
+        }
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      material,
+      generatedNotesCount: notesCount,
+      message: `Course material uploaded and module-wise study notes generated for ${notesCount} module(s)!`,
+    });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
-

@@ -95,7 +95,7 @@ export default function MaterialsPage() {
       const data = await res.json();
       if (data.success) {
         setSelectedFile(null);
-        toast('PDF material uploaded and text extracted for AI question grounding!', 'success');
+        toast(data.message || 'Course material uploaded and module-wise notes generated!', 'success');
         await loadMaterials(selectedCourseId);
       } else {
         toast(`Upload error: ${data.error}`, 'error');

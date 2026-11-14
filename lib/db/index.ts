@@ -153,6 +153,14 @@ export const db = {
     return true;
   },
 
+  updateModule(id: string, updates: Partial<Module>): Module | undefined {
+    const mod = mockDb.modules.find((m) => m.id === id);
+    if (!mod) return undefined;
+    Object.assign(mod, updates);
+    mockDb.saveToDisk();
+    return mod;
+  },
+
   clearModules(courseId: string): number {
     const initial = mockDb.modules.length;
     mockDb.modules = mockDb.modules.filter((m) => m.course_id !== courseId);

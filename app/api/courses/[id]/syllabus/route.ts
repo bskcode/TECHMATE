@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { extractTextFromBuffer } from '@/lib/documents/parser';
 import { extractSyllabus } from '@/lib/ai/syllabus-extractor';
+import { generateModuleNotes } from '@/lib/ai/notes-generator';
 
 export async function POST(
   req: NextRequest,
@@ -119,6 +120,23 @@ export async function POST(
           bloom_level: co.bloom_level,
         });
       });
+
+      // Generate module-wise study notes for all extracted modules
+      for (const mod of savedModules) {
+        try {
+          const notesMarkdown = await generateModuleNotes({
+            courseTitle: `${course.code}: ${course.title}`,
+            moduleTitle: mod.title,
+            moduleOrder: mod.order_index,
+            moduleDescription: mod.description,
+            learningObjectives: mod.learning_objectives,
+            groundingText: syllabusText,
+          });
+          db.updateModule(mod.id, { notes_markdown: notesMarkdown });
+        } catch (e: any) {
+          console.warn(`Failed to auto-generate notes for module ${mod.title}:`, e.message);
+        }
+      }
 
       // Update course description if empty
       if ((!course.description || course.description.trim() === '') && extracted.course_description) {

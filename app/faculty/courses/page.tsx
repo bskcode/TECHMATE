@@ -78,6 +78,28 @@ export default function CoursesPage() {
   const [replaceExistingSyllabus, setReplaceExistingSyllabus] = useState(true);
   const [extractingSyllabus, setExtractingSyllabus] = useState(false);
   const [extractedResult, setExtractedResult] = useState<any>(null);
+  const [generatingNotes, setGeneratingNotes] = useState(false);
+
+  const handleGenerateNotes = async () => {
+    if (!selectedCourse) return;
+    setGeneratingNotes(true);
+    try {
+      const res = await fetch(`/api/courses/${selectedCourse.id}/generate-notes`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast(data.message || 'Module study notes generated successfully!', 'success');
+        await loadCourseDetails(selectedCourse.id);
+      } else {
+        toast(data.error || 'Failed to generate module notes', 'error');
+      }
+    } catch (err: any) {
+      toast(err.message, 'error');
+    } finally {
+      setGeneratingNotes(false);
+    }
+  };
 
   useEffect(() => {
     loadCourses();
@@ -486,6 +508,17 @@ export default function CoursesPage() {
                     <Sparkles className="w-3.5 h-3.5 mr-1" />
                     <span>Auto-Extract</span>
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={generatingNotes}
+                    onClick={handleGenerateNotes}
+                    className="text-[11px] font-bold text-[#3E2D68] hover:text-[#3E2D68] hover:bg-purple-50 h-7 px-2"
+                    title="Generate or update module-wise study notes using course materials"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 mr-1" />
+                    <span>{generatingNotes ? 'Generating...' : 'Generate Notes'}</span>
+                  </Button>
                   <Badge variant="outline" className="text-xs font-bold">
                     {courseDetails.modules?.length || 0} Modules
                   </Badge>
@@ -514,6 +547,11 @@ export default function CoursesPage() {
                               {m.order_index}
                             </span>
                             <h4 className="text-sm font-bold text-gray-900">{m.title}</h4>
+                            {m.notes_markdown && (
+                              <Badge variant="emerald" className="text-[9px] px-1.5 py-0 font-bold shrink-0">
+                                Notes Ready
+                              </Badge>
+                            )}
                           </div>
                           {m.description && (
                             <p className="text-xs text-gray-500 pl-8 leading-relaxed">{m.description}</p>

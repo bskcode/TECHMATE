@@ -233,25 +233,142 @@ class MemoryDatabase {
       {
         id: '22222222-2222-2222-2222-222222222221',
         course_id: '11111111-1111-1111-1111-111111111111',
-        title: 'Module 1: Computational Thinking & Algorithms',
-        description: 'Decomposition, pattern recognition, abstraction, and pseudocode design.',
+        title: 'Module 1: Computational Thinking & Algorithmic Abstraction',
+        description: 'Decomposition, pattern recognition, abstraction, Big-O complexity, and binary search bounds.',
         order_index: 1,
+        learning_objectives: [
+          'Master algorithmic decomposition and state transformation.',
+          'Calculate asymptotic time complexity bounds using Big-O notation.',
+          'Implement logarithmic binary search on ordered sequences.',
+        ],
+        notes_markdown: `# Module 1: Computational Thinking & Algorithmic Abstraction
+
+## 1. Module Overview & Learning Objectives
+This module introduces the mathematical foundations of computational thinking, algorithmic efficiency, and asymptotic complexity analysis.
+- Understand how computational problems are decomposed into unambiguous instructions.
+- Analyze growth rates of algorithms using **Big-O notation**.
+- Contrast logarithmic $O(\\log N)$, linear $O(N)$, and quadratic $O(N^2)$ execution costs.
+
+## 2. Foundational Principles & Core Concepts
+### Computational Abstraction & Growth Rates
+Algorithms are finite sequences of rigorous instructions transforming inputs to outputs.
+- **Constant Time $O(1)$**: Accessing an array element by index.
+- **Logarithmic Time $O(\\log N)$**: Halving the search range iteratively (Binary Search).
+- **Linear Time $O(N)$**: Scanning an unsorted sequence.
+- **Linearithmic Time $O(N \\log N)$**: Optimal comparison sorting (MergeSort, QuickSort average).
+- **Quadratic Time $O(N^2)$**: Nested loops such as Bubble Sort or brute-force pair comparisons.
+
+### Binary Search Mechanics
+Binary Search requires an **ordered** (sorted) array. By repeatedly testing the median element:
+$$\\text{Max Comparisons} = \\lceil \\log_2(N) \\rceil$$
+For an array of $N = 1024$ items, exactly $\\log_2(1024) = 10$ comparisons are performed in the worst case.
+
+## 3. Key Terminology & Definitions
+| Term | Academic Definition |
+| :--- | :--- |
+| **Big-O** | Formal asymptotic notation describing the worst-case growth rate upper bound. |
+| **Binary Search** | Divide-and-conquer search executing in logarithmic $O(\\log N)$ time. |
+| **Asymptotic Bound** | Mathematical limit of runtime behavior as input size $N \\to \\infty$. |
+
+## 4. Quick Revision & Key Takeaways
+- Sorting is a mandatory prerequisite for Binary Search.
+- Halving the problem size at each step produces logarithmic time complexity $O(\\log N)$.
+- Review logarithmic vs linearithmic complexity before taking the Module 1 Diagnostic Assessment.`,
         created_at: new Date().toISOString(),
       },
       {
         id: '22222222-2222-2222-2222-222222222222',
         course_id: '11111111-1111-1111-1111-111111111111',
         title: 'Module 2: Discrete Logic & Boolean Algebra',
-        description: 'Logic gates, truth tables, proposition logic, and conditional evaluation.',
+        description: 'Logic gates, truth tables, propositional logic, and De Morgan algebraic simplifications.',
         order_index: 2,
+        learning_objectives: [
+          'Evaluate truth tables and Boolean operations (AND, OR, NOT, XOR).',
+          'Prove logical equivalence using De Morgan Laws.',
+          'Simplify digital control logic for decision systems.',
+        ],
+        notes_markdown: `# Module 2: Discrete Logic & Boolean Algebra
+
+## 1. Module Overview & Learning Objectives
+This module establishes formal propositional logic and Boolean algebraic structures fundamental to digital computation and artificial intelligence knowledge representation.
+- Define fundamental truth valuations for propositional connectives.
+- Apply **De Morgan's Laws** to transform compound expressions.
+- Analyze circuit simplifications using Boolean duality.
+
+## 2. Foundational Principles & Core Concepts
+### Boolean Logic Gates
+Boolean variables take one of two truth values: $\\text{True } (1)$ or $\\text{False } (0)$.
+- **AND $(\\land)$**: True exclusively when both operands are True.
+- **OR $(\\lor)$**: True when at least one operand is True.
+- **NOT $(\\neg)$**: Inverts the logical valuation.
+- **XOR $(\\oplus)$**: True if and only if operands have differing truth values.
+
+### De Morgan's Laws
+The negation of a conjunction yields a disjunction of negations, and vice-versa:
+1. $$\\neg (A \\land B) \\iff (\\neg A) \\lor (\\neg B)$$
+2. $$\\neg (A \\lor B) \\iff (\\neg A) \\land (\\neg B)$$
+*Common Student Error*: Do NOT distribute negation without flipping the central connective (AND flips to OR, OR flips to AND).
+
+## 3. Key Terminology & Definitions
+| Term | Formal Definition |
+| :--- | :--- |
+| **Proposition** | A declarative statement that is deterministically either True or False. |
+| **Tautology** | A compound formula that evaluates to True under all truth assignments. |
+| **De Morgan's Theorem** | Dual rules expressing connectives in terms of their negations. |
+
+## 4. Quick Revision & Key Takeaways
+- Negating $(A \\text{ AND } B)$ yields $(\\text{NOT } A \\text{ OR } \\text{NOT } B)$.
+- XOR outputs False when both inputs are True.`,
         created_at: new Date().toISOString(),
       },
       {
         id: '22222222-2222-2222-2222-222222222223',
         course_id: '11111111-1111-1111-1111-111111111111',
         title: 'Module 3: Introduction to AI & Search Strategies',
-        description: 'State space search, breadth-first, depth-first, and heuristics.',
+        description: 'State space graph exploration, Breadth-First Search, Depth-First Search, and Admissible Heuristics.',
         order_index: 3,
+        learning_objectives: [
+          'Formulate state-space graphs with states, actions, and transition costs.',
+          'Discriminate BFS queue vs DFS stack memory and optimality trade-offs.',
+          'Formulate admissible and consistent heuristic evaluation functions for A* search.',
+        ],
+        notes_markdown: `# Module 3: Introduction to AI & Search Strategies
+
+## 1. Module Overview & Learning Objectives
+This module investigates foundational graph and state-space exploration algorithms that power automated reasoning, path planning, and artificial intelligence solvers.
+- Model problem domains as state-space graphs $(S, A, T, G)$.
+- Contrast the memory complexity of **BFS** $O(b^d)$ vs **DFS** $O(b \\cdot d)$.
+- Apply the criterion of **admissibility** to heuristic functions $h(n)$.
+
+## 2. Foundational Principles & Core Concepts
+### Uninformed Search Algorithms
+- **Breadth-First Search (BFS)**: Explores shallowest unexplored nodes first using a **FIFO (First-In, First-Out) Queue**.
+  - *Completeness*: Complete for finite branching factor $b$.
+  - *Optimality*: Guarantees the shortest path on unweighted graphs.
+  - *Space Complexity*: Exponential $O(b^d)$ — memory overflow is the primary failure mode.
+- **Depth-First Search (DFS)**: Explores deepest frontiers first using a **LIFO (Last-In, First-Out) Stack**.
+  - *Space Complexity*: Linear memory $O(b \\cdot d)$, making it vastly more RAM-efficient.
+  - *Optimality*: Not optimal; can traverse infinite cycles without cycle detection.
+
+### Heuristic Search & Admissibility
+In informed search algorithms like $A^*$, evaluation combines exact path cost $g(n)$ with estimated future cost $h(n)$:
+$$f(n) = g(n) + h(n)$$
+A heuristic function $h(n)$ is defined as **admissible** if:
+$$h(n) \\le h^*(n) \\quad \\forall n$$
+Where $h^*(n)$ represents the true minimal cost to achieve the goal from node $n$. An admissible heuristic never overestimates the true cost, guaranteeing finding an optimal solution.
+
+## 3. Key Terminology & Definitions
+| Algorithm / Concept | Memory Complexity | Optimality (Unweighted) | Frontier Structure |
+| :--- | :--- | :--- | :--- |
+| **BFS** | $O(b^d)$ (Exponential) | **Yes** (Guaranteed) | FIFO Queue |
+| **DFS** | $O(b \\cdot d)$ (Linear) | No | LIFO Stack |
+| **IDDFS** | $O(b \\cdot d)$ (Linear) | **Yes** (Guaranteed) | Iterative DFS |
+| **A* Search** | $O(b^d)$ (Exponential) | **Yes** (if admissible) | Priority Queue |
+
+## 4. Quick Revision & Key Takeaways
+- BFS utilizes a FIFO Queue and requires exponential memory $O(b^d)$.
+- DFS utilizes a LIFO Stack and has linear memory $O(b \\cdot d)$.
+- An admissible heuristic never overestimates the minimal distance to the goal.`,
         created_at: new Date().toISOString(),
       }
     );

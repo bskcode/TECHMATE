@@ -79,6 +79,7 @@ export interface Module {
   description?: string;
   order_index: number;
   learning_objectives?: string[];
+  notes_markdown?: string;
   created_at: string;
 }
 
