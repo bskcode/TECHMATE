@@ -6,6 +6,7 @@
 
 import { groqService } from './groq-provider';
 import { InterventionPackageSchema, InterventionPackageZod } from './schemas';
+import { cleanSubjectTitle, sanitizeQuestionText } from './question-generator';
 import { BloomTrait } from '@/types';
 
 export interface GenerateInterventionParams {
@@ -226,7 +227,7 @@ In ${courseTitle}, data structure selection dictates both runtime and spatial me
       ],
       practice_questions: [
         {
-          question_text: `In ${courseTitle}, what is the worst-case time complexity of searching for an element in an unbalanced Binary Search Tree containing N elements?`,
+          question_text: `What is the worst-case time complexity of searching for an element in an unbalanced Binary Search Tree containing N elements?`,
           options: ['O(1)', 'O(log N)', 'O(N)', 'O(N^2)'],
           correct_answer: 'O(N)',
           explanation: 'When a BST is completely unbalanced (e.g., elements inserted in ascending order), it degenerates into a linear linked list where search takes O(N).',
@@ -243,28 +244,30 @@ In ${courseTitle}, data structure selection dictates both runtime and spatial me
     };
   }
 
+  const cleanCourse = cleanSubjectTitle(courseTitle) || courseTitle;
+
   // General course-specific fallback strictly derived from the course topics and grounding text
   return {
-    title: `Targeted Remediation: Mastering ${primaryTopic} in ${courseTitle}`,
-    learning_gap_summary: `${studentName} demonstrated strong foundational engagement but experienced difficulties synthesizing operational principles and evaluating structural trade-offs in ${primaryTopic} for ${courseTitle} (addressing ${traitList}).`,
+    title: `Targeted Remediation: Mastering ${primaryTopic} in ${cleanCourse}`,
+    learning_gap_summary: `${studentName} demonstrated strong foundational engagement but experienced difficulties synthesizing operational principles and evaluating structural trade-offs in ${primaryTopic} for ${cleanCourse} (addressing ${traitList}).`,
     explanation_markdown: `# Targeted Remediation: ${primaryTopic} & ${secondaryTopic}
-Course Context: **${courseTitle}**
+Course Context: **${cleanCourse}**
 
 ## 1. Where the Gap Occurred
 Your diagnostic assessment indicated friction when applying core analytical principles and evaluating structural constraints in **${primaryTopic}**.
 
 ## 2. Core Principles & Operational Foundations
-In **${courseTitle}**, mastering this domain requires understanding the direct relationship between technical definitions and their computational or practical invariants:
+In **${cleanCourse}**, mastering this domain requires understanding the direct relationship between technical definitions and their computational or practical invariants:
 - **${primaryTopic}**: Serves as a foundational structural building block. Understanding how it transforms inputs and maintains system invariants is essential for passing progressive assessments.
 - **${secondaryTopic}**: Operates in conjunction with **${primaryTopic}** to govern operational constraints, bounds, and correctness conditions.
 
 ## 3. Key Invariants & Formulas
-- Review the specific relationships defined in your syllabus and lecture notes for **${courseTitle}**.
+- Review the specific relationships defined in your syllabus and lecture notes for **${cleanCourse}**.
 - Ensure that every problem formulation clearly distinguishes between independent inputs, state transitions, and expected terminal conditions.`,
     worked_examples: [
       {
         step: 1,
-        description: `Deconstructing Problem Specifications in ${courseTitle}: First identify the governing constraints associated with ${primaryTopic}.`,
+        description: `Deconstructing Problem Specifications: First identify the governing constraints associated with ${primaryTopic}.`,
       },
       {
         step: 2,
@@ -282,30 +285,30 @@ In **${courseTitle}**, mastering this domain requires understanding the direct r
       },
     ],
     revision_checklist: [
-      `Can you write out the formal definition of ${primaryTopic} in ${courseTitle}?`,
+      `Can you write out the formal definition of ${primaryTopic}?`,
       `Do you understand how ${primaryTopic} interacts with ${secondaryTopic}?`,
       'Can you identify the boundary constraints and potential failure points in standard problem configurations?',
     ],
     recommended_next_steps: [
-      `Review your course notes and syllabus milestones for ${courseTitle}.`,
+      `Review your course notes and syllabus milestones for ${cleanCourse}.`,
       'Work through the 2 practice questions below without reference to notes.',
       'Check your explanations against the lecture materials before taking the next assessment.',
     ],
     practice_questions: [
       {
-        question_text: `In the study of ${courseTitle}, which statement accurately identifies the primary role of ${primaryTopic}?`,
+        question_text: `Which statement accurately identifies the primary role and operational invariants of ${primaryTopic}?`,
         options: [
-          `It defines the core operational invariants and structural rules in ${courseTitle}.`,
+          `It defines the core operational invariants and structural rules governing state transitions.`,
           `It acts as an obsolete placeholder that violates system constraints.`,
           `It operates strictly without termination conditions or formal bounds.`,
           `It inverts all inputs and produces non-deterministic outputs.`,
         ],
-        correct_answer: `It defines the core operational invariants and structural rules in ${courseTitle}.`,
-        explanation: `In ${courseTitle}, ${primaryTopic} establishes the foundational operational invariants necessary for correctness and analytical evaluation.`,
+        correct_answer: `It defines the core operational invariants and structural rules governing state transitions.`,
+        explanation: `${primaryTopic} establishes the foundational operational invariants necessary for correctness and analytical evaluation.`,
         trait: 'understanding',
       },
       {
-        question_text: `When evaluating system requirements in ${courseTitle}, under which condition is ${secondaryTopic} most appropriately applied?`,
+        question_text: `When evaluating system requirements and performance constraints, under which condition is ${secondaryTopic} most appropriately applied?`,
         options: [
           `When operational bounds require structured verification of system state.`,
           `When the system must execute without memory or storage allocation.`,
@@ -313,7 +316,7 @@ In **${courseTitle}**, mastering this domain requires understanding the direct r
           `When all algorithmic transitions must be non-deterministic.`,
         ],
         correct_answer: `When operational bounds require structured verification of system state.`,
-        explanation: `According to ${courseTitle} principles, ${secondaryTopic} provides structured verification of system invariants under defined operational bounds.`,
+        explanation: `${secondaryTopic} provides structured verification of system invariants under defined operational bounds.`,
         trait: 'analysis',
       },
     ],

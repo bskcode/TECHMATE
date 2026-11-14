@@ -62,8 +62,8 @@ const RawQuestionPackageSchema = z.object({
   secondary_trait: BloomTraitEnum.optional(),
   secondary_trait_weight: z.number().min(0).max(0.5).optional(),
   difficulty: DifficultyEnum.default('medium'),
-  hint_1: z.string().optional().default('Review the core concepts from the lecture text.'),
-  hint_2: z.string().optional().default('Focus on the specific definitions and properties presented in the material.'),
+  hint_1: z.string().optional().default('Recall the governing technical theorem or definition for this mechanism.'),
+  hint_2: z.string().optional().default('Apply the foundational invariant or operational formula established in the lecture material.'),
   evaluation_method: z.enum(['deterministic', 'hybrid']).default('deterministic'),
   numeric_tolerance: z.number().optional(),
   source_reference: z.string().optional(),
@@ -170,8 +170,8 @@ export const QuestionPackageSchema = z.preprocess((val: any) => {
   }
 
   // Fallback progressive hints if omitted
-  if (!copy.hint_1) copy.hint_1 = 'Review the core concepts from the lecture text.';
-  if (!copy.hint_2) copy.hint_2 = 'Focus on the specific definitions and properties presented in the material.';
+  if (!copy.hint_1) copy.hint_1 = 'Recall the governing technical theorem or definition for this mechanism.';
+  if (!copy.hint_2) copy.hint_2 = 'Apply the foundational invariant or operational formula established in the lecture material.';
 
   return copy;
 }, RawQuestionPackageSchema);

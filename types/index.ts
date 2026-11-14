@@ -307,16 +307,21 @@ export interface ProgressReport {
   student_id: string;
   course_id: string;
   baseline_assessment_id: string;
+  progressive_assessment_id?: string;
   final_assessment_id: string;
   baseline_score: number;
+  progressive_score?: number;
   final_score: number;
-  score_improvement: number; // final - baseline
+  score_improvement: number; // final - baseline (in percentage points)
+  progressive_improvement?: number; // progressive - baseline (in percentage points)
   trait_improvements: Record<BloomTrait, number>; // in percentage points
+  progressive_trait_improvements?: Record<BloomTrait, number>; // in percentage points
   evidence_counts: Record<BloomTrait, number>;
   summary_narrative?: string;
   generated_at: string;
   student?: Profile;
   baseline_assessment?: Assessment;
+  progressive_assessment?: Assessment;
   final_assessment?: Assessment;
 }
 

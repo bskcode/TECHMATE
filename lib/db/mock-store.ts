@@ -550,29 +550,73 @@ A heuristic is admissible if h(n) <= h*(n) for all n.`,
         version: 1,
         created_at: new Date().toISOString(),
         published_at: new Date().toISOString(),
+      },
+      // Final Examination
+      {
+        id: '55555555-5555-5555-5555-555555555557',
+        course_id: '11111111-1111-1111-1111-111111111111',
+        title: 'Comprehensive Final Examination',
+        description: 'Comprehensive university final examination evaluating student mastery across all course modules.',
+        assessment_type: 'final',
+        status: 'published',
+        time_limit_minutes: 45,
+        max_marks: 30,
+        passing_marks: 15,
+        progressive_hints_enabled: false,
+        version: 1,
+        created_at: new Date().toISOString(),
+        published_at: new Date().toISOString(),
       }
     );
 
     // 9. Diagnostic Questions (6 Bloom Dimensions)
     this.seedQuestions();
 
-    // 10. Sample Diagnostic Attempt for Branden Harris
-    this.attempts.push({
-      id: '77777777-7777-7777-7777-777777777771',
-      assessment_id: '55555555-5555-5555-5555-555555555551',
-      student_id: '00000000-0000-0000-0000-000000000101',
-      attempt_number: 1,
-      status: 'evaluated',
-      started_at: new Date(Date.now() - 5 * 86400000).toISOString(),
-      submitted_at: new Date(Date.now() - 5 * 86400000 + 24 * 60000).toISOString(),
-      total_score: 21.25,
-      max_score: 30.0,
-      percentage: 70.83,
-      is_final: true,
-    });
+    // 10. Sample Diagnostic, Progressive, and Final Attempts for Branden Harris
+    this.attempts.push(
+      {
+        id: '77777777-7777-7777-7777-777777777771',
+        assessment_id: '55555555-5555-5555-5555-555555555551',
+        student_id: '00000000-0000-0000-0000-000000000101',
+        attempt_number: 1,
+        status: 'evaluated',
+        started_at: new Date(Date.now() - 5 * 86400000).toISOString(),
+        submitted_at: new Date(Date.now() - 5 * 86400000 + 24 * 60000).toISOString(),
+        total_score: 21.25,
+        max_score: 30.0,
+        percentage: 70.83,
+        is_final: true,
+      },
+      {
+        id: '77777777-7777-7777-7777-777777777772',
+        assessment_id: '55555555-5555-5555-5555-555555555552',
+        student_id: '00000000-0000-0000-0000-000000000101',
+        attempt_number: 1,
+        status: 'evaluated',
+        started_at: new Date(Date.now() - 3 * 86400000).toISOString(),
+        submitted_at: new Date(Date.now() - 3 * 86400000 + 30 * 60000).toISOString(),
+        total_score: 25.25,
+        max_score: 30.0,
+        percentage: 84.17,
+        is_final: true,
+      },
+      {
+        id: '77777777-7777-7777-7777-777777777773',
+        assessment_id: '55555555-5555-5555-5555-555555555557',
+        student_id: '00000000-0000-0000-0000-000000000101',
+        attempt_number: 1,
+        status: 'evaluated',
+        started_at: new Date(Date.now() - 86400000).toISOString(),
+        submitted_at: new Date(Date.now() - 86400000 + 40 * 60000).toISOString(),
+        total_score: 28.0,
+        max_score: 30.0,
+        percentage: 93.33,
+        is_final: true,
+      }
+    );
 
-    // Trait Scores for Branden Harris
-    const student1Traits: Array<[any, number, number, number, any]> = [
+    // Trait Scores across Diagnostic, Progressive, and Final for Branden Harris
+    const student1DiagnosticTraits: Array<[any, number, number, number, any]> = [
       ['remembering', 5.0, 5.0, 100.0, 'moderate'],
       ['understanding', 5.0, 5.0, 100.0, 'moderate'],
       ['application', 5.0, 5.0, 100.0, 'moderate'],
@@ -581,9 +625,9 @@ A heuristic is admissible if h(n) <= h*(n) for all n.`,
       ['evaluation', 2.5, 5.0, 50.0, 'moderate'],
     ];
 
-    student1Traits.forEach(([trait, earned, possible, pct, conf]) => {
+    student1DiagnosticTraits.forEach(([trait, earned, possible, pct, conf]) => {
       this.trait_scores.push({
-        id: `ts-${trait}`,
+        id: `ts-diag-${trait}`,
         attempt_id: '77777777-7777-7777-7777-777777777771',
         student_id: '00000000-0000-0000-0000-000000000101',
         course_id: '11111111-1111-1111-1111-111111111111',
@@ -593,6 +637,56 @@ A heuristic is admissible if h(n) <= h*(n) for all n.`,
         marks_possible: possible,
         score_percentage: pct,
         evidence_count: 1,
+        confidence: conf,
+      });
+    });
+
+    const student1ProgressiveTraits: Array<[any, number, number, number, any]> = [
+      ['remembering', 5.0, 5.0, 100.0, 'high'],
+      ['understanding', 5.0, 5.0, 100.0, 'high'],
+      ['application', 5.0, 5.0, 100.0, 'high'],
+      ['analysis', 3.75, 5.0, 75.0, 'high'],
+      ['creativity', 3.25, 5.0, 65.0, 'moderate'],
+      ['evaluation', 3.25, 5.0, 65.0, 'moderate'],
+    ];
+
+    student1ProgressiveTraits.forEach(([trait, earned, possible, pct, conf]) => {
+      this.trait_scores.push({
+        id: `ts-prog-${trait}`,
+        attempt_id: '77777777-7777-7777-7777-777777777772',
+        student_id: '00000000-0000-0000-0000-000000000101',
+        course_id: '11111111-1111-1111-1111-111111111111',
+        assessment_id: '55555555-5555-5555-5555-555555555552',
+        trait,
+        marks_earned: earned,
+        marks_possible: possible,
+        score_percentage: pct,
+        evidence_count: 2,
+        confidence: conf,
+      });
+    });
+
+    const student1FinalTraits: Array<[any, number, number, number, any]> = [
+      ['remembering', 5.0, 5.0, 100.0, 'high'],
+      ['understanding', 5.0, 5.0, 100.0, 'high'],
+      ['application', 5.0, 5.0, 100.0, 'high'],
+      ['analysis', 4.75, 5.0, 95.0, 'high'],
+      ['creativity', 4.25, 5.0, 85.0, 'high'],
+      ['evaluation', 4.0, 5.0, 80.0, 'high'],
+    ];
+
+    student1FinalTraits.forEach(([trait, earned, possible, pct, conf]) => {
+      this.trait_scores.push({
+        id: `ts-final-${trait}`,
+        attempt_id: '77777777-7777-7777-7777-777777777773',
+        student_id: '00000000-0000-0000-0000-000000000101',
+        course_id: '11111111-1111-1111-1111-111111111111',
+        assessment_id: '55555555-5555-5555-5555-555555555557',
+        trait,
+        marks_earned: earned,
+        marks_possible: possible,
+        score_percentage: pct,
+        evidence_count: 3,
         confidence: conf,
       });
     });
@@ -675,16 +769,19 @@ Where $h^*(n)$ is the true shortest cost from node $n$ to the goal.
       trait: 'creativity',
     });
 
-    // 12. Progress Report for Branden Harris (+22.5 pp overall improvement)
+    // 12. Progress Report for Branden Harris: Diagnostic Baseline -> Progressive Assessment -> Final Mastery
     this.progress_reports.push({
       id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbb1',
       student_id: '00000000-0000-0000-0000-000000000101',
       course_id: '11111111-1111-1111-1111-111111111111',
       baseline_assessment_id: '55555555-5555-5555-5555-555555555551',
-      final_assessment_id: '55555555-5555-5555-5555-555555555552',
+      progressive_assessment_id: '55555555-5555-5555-5555-555555555552',
+      final_assessment_id: '55555555-5555-5555-5555-555555555557',
       baseline_score: 70.83,
+      progressive_score: 84.17,
       final_score: 93.33,
       score_improvement: 22.5,
+      progressive_improvement: 13.34,
       trait_improvements: {
         remembering: 0.0,
         understanding: 0.0,
@@ -693,15 +790,23 @@ Where $h^*(n)$ is the true shortest cost from node $n$ to the goal.
         creativity: 60.0,
         evaluation: 30.0,
       },
-      evidence_counts: {
-        remembering: 2,
-        understanding: 2,
-        application: 2,
-        analysis: 2,
-        creativity: 2,
-        evaluation: 2,
+      progressive_trait_improvements: {
+        remembering: 0.0,
+        understanding: 0.0,
+        application: 0.0,
+        analysis: 25.0,
+        creativity: 40.0,
+        evaluation: 15.0,
       },
-      summary_narrative: 'Aarav achieved exceptional improvement after completing the targeted remediation package in State-Space Search and Heuristics. Analysis increased by +45.0 percentage points, Creativity improved by +60.0 pp, and Evaluation improved by +30.0 pp.',
+      evidence_counts: {
+        remembering: 3,
+        understanding: 3,
+        application: 3,
+        analysis: 3,
+        creativity: 3,
+        evaluation: 3,
+      },
+      summary_narrative: 'Aarav demonstrated measurable cognitive progression from Diagnostic Baseline (70.8%) through Progressive Formative Assessment (84.2%, +13.3 pp) to Final Examination (93.3%, +22.5 pp overall). Strongest gains occurred in Creativity (+60.0 pp) and Analysis (+45.0 pp).',
       generated_at: new Date(Date.now() - 86400000).toISOString(),
     });
   }
@@ -726,8 +831,8 @@ Where $h^*(n)$ is the true shortest cost from node $n$ to the goal.
         correct_answer: 'O(log N)',
         accepted_variations: ['O(log N)', 'O(log(N))', 'O(logn)'],
         explanation: 'Binary search halves the search space with each comparison step, leading to logarithmic worst-case time complexity O(log N).',
-        hint_1: 'Consider how the search space shrinks: the array size is divided by 2 at every step.',
-        hint_2: 'Inverse of exponentiation 2^k = N gives k = log2(N).',
+        hint_1: 'Analyze the recurrence relation for Binary Search: T(N) = T(N/2) + O(1). At each comparison, the search interval [low, high] is bisected in half.',
+        hint_2: 'Repeated bisection terminates when the subarray reaches size 1. The number of division steps k satisfies 2^k = N, yielding k = log2(N) which gives worst-case O(log N).',
       },
       {
         id: '66666666-6666-6666-6666-666666666662',
@@ -747,8 +852,8 @@ Where $h^*(n)$ is the true shortest cost from node $n$ to the goal.
         correct_answer: 'False',
         accepted_variations: ['False', 'false', 'F'],
         explanation: 'By De Morgan\'s law, NOT (A AND B) expands to (NOT A) OR (NOT B), not AND.',
-        hint_1: 'Recall how distributing a NOT over a conjunction changes the central operator.',
-        hint_2: 'The conjunction AND flips to disjunction OR: NOT (A AND B) = (NOT A) OR (NOT B).',
+        hint_1: 'Apply De Morgan\'s duality theorem: distributing negation across a conjunction (AND) inverts both boolean literals AND inverts the logical operator.',
+        hint_2: 'The formal equivalence states NOT (A AND B) ≡ (NOT A) OR (NOT B). The central operator MUST become OR (disjunction), which makes the statement False.',
       },
       {
         id: '66666666-6666-6666-6666-666666666663',
@@ -767,8 +872,8 @@ Where $h^*(n)$ is the true shortest cost from node $n$ to the goal.
         correct_answer: '10',
         accepted_variations: ['10', '10 comparisons', '10.0'],
         explanation: 'Since 2^10 = 1024, log2(1024) = 10 comparisons are needed in the worst case.',
-        hint_1: 'Express 1024 as an exact power of 2: 2^k = 1024.',
-        hint_2: '2^1 = 2, 2^2 = 4 ... 2^8 = 256, 2^9 = 512, 2^10 = 1024. Therefore k = 10.',
+        hint_1: 'Binary search worst-case comparison count is given by ceil(log2(N)). Express N = 1024 as an exact power of 2: 2^k = 1024.',
+        hint_2: 'Compute the powers of two: 2^8 = 256, 2^9 = 512, and 2^10 = 1024. Therefore, k = log2(1024) = 10 maximum comparisons.',
       },
       {
         id: '66666666-6666-6666-6666-666666666664',
@@ -793,8 +898,8 @@ Where $h^*(n)$ is the true shortest cost from node $n$ to the goal.
         correct_answer: 'Uses a FIFO queue data structure, Has exponential memory complexity O(b^d), Guarantees shortest path on unweighted graphs',
         accepted_variations: ['0,1,2', 'A,B,C'],
         explanation: 'BFS explores layer by layer using a FIFO queue, finds the shortest path on unweighted graphs, and requires storing all frontier nodes (O(b^d) space).',
-        hint_1: 'Remember that BFS explores level by level, requiring FIFO order rather than LIFO.',
-        hint_2: 'Three of the four statements are true properties of BFS; stacks belong to DFS.',
+        hint_1: 'Examine BFS operational mechanics: BFS discovers all vertices at depth d before depth d+1 using a FIFO queue, guaranteeing minimal edge paths on unweighted graphs.',
+        hint_2: 'Because BFS must retain all unexplored nodes at the current frontier in memory simultaneously, its spatial complexity is O(b^d). Conversely, LIFO stacks belong to DFS, not BFS.',
       },
       {
         id: '66666666-6666-6666-6666-666666666665',
@@ -813,8 +918,8 @@ Where $h^*(n)$ is the true shortest cost from node $n$ to the goal.
         correct_answer: 'admissible',
         accepted_variations: ['admissible', 'Admissible', 'admissable', 'ADMISSIBLE'],
         explanation: 'An admissible heuristic never overestimates the actual minimal cost to reach the goal state, which guarantees optimality for A* search.',
-        hint_1: 'The word starts with "adm" and means acceptable or permissible in the context of optimality proofs.',
-        hint_2: 'It rhymes with "permissible": a-d-m-i-s-s-i-b-l-e.',
+        hint_1: 'In A* search optimality theory, a heuristic function h(n) guarantees an optimal solution if it satisfies h(n) <= h*(n) for all nodes n, where h*(n) is the true minimal cost to the goal.',
+        hint_2: 'A heuristic that satisfies 0 <= h(n) <= h*(n) and never overestimates the true remaining distance is formally defined as an "admissible" heuristic.',
       },
       {
         id: '66666666-6666-6666-6666-666666666666',
@@ -839,8 +944,8 @@ Where $h^*(n)$ is the true shortest cost from node $n$ to the goal.
         correct_answer: 'Iterative Deepening Search with visited node hashing (IDDFS)',
         accepted_variations: ['Iterative Deepening Search with visited node hashing (IDDFS)', 'IDDFS', 'Iterative Deepening Search'],
         explanation: 'IDDFS combines the minimal linear memory requirements of DFS (O(b*d)) with the completeness and optimality of BFS, making it ideal for memory-constrained embedded systems.',
-        hint_1: 'Evaluate which algorithm has O(b*d) linear memory while still guaranteeing complete and optimal paths.',
-        hint_2: 'Iterative Deepening Search repeatedly runs depth-limited DFS up to depth d, using minimal memory.',
+        hint_1: 'Evaluate memory bounds: on a 32 KB microcontroller, BFS requires O(b^d) exponential queue memory which causes immediate RAM exhaustion. DFS uses O(b*d) linear memory but gets trapped in infinite cycles.',
+        hint_2: 'Iterative Deepening Depth-First Search (IDDFS) visits nodes order by order using depth-limited DFS with O(b*d) linear stack memory while guaranteeing BFS completeness and optimality.',
       },
     ];
 
@@ -935,6 +1040,53 @@ Where $h^*(n)$ is the true shortest cost from node $n$ to the goal.
         {
           id: `h2-${progId}`,
           question_id: progId,
+          hint_number: 2,
+          hint_text: q.hint_2,
+          penalty_percentage: 50.0,
+        }
+      );
+    });
+
+    // Also populate questions for Final Examination
+    qList.forEach((q, idx) => {
+      const finalQId = `66666666-6666-6666-6666-88888888888${idx + 1}`;
+      this.questions.push({
+        id: finalQId,
+        assessment_id: '55555555-5555-5555-5555-555555555557',
+        order_index: q.order_index,
+        question_text: q.question_text,
+        question_type: q.question_type,
+        options: q.options,
+        max_marks: q.max_marks,
+        primary_trait: q.primary_trait,
+        difficulty: q.difficulty,
+        approval_status: q.approval_status,
+        course_outcome_ids: q.course_outcome_ids,
+        grounding_material_ids: q.grounding_material_ids,
+        source_reference: q.source_reference,
+        created_at: q.created_at,
+      });
+
+      this.question_answer_keys.push({
+        id: `ak-${finalQId}`,
+        question_id: finalQId,
+        correct_answer: q.correct_answer,
+        accepted_variations: q.accepted_variations,
+        evaluation_method: 'deterministic',
+        explanation: q.explanation,
+      });
+
+      this.question_hints.push(
+        {
+          id: `h1-${finalQId}`,
+          question_id: finalQId,
+          hint_number: 1,
+          hint_text: q.hint_1,
+          penalty_percentage: 25.0,
+        },
+        {
+          id: `h2-${finalQId}`,
+          question_id: finalQId,
           hint_number: 2,
           hint_text: q.hint_2,
           penalty_percentage: 50.0,

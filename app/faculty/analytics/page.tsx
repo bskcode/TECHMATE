@@ -11,6 +11,7 @@ import {
   Award,
   Layers,
   Download,
+  CheckCircle2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ export default function FacultyAnalyticsPage() {
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [analytics, setAnalytics] = useState<any>(null);
   const [generatingForStudent, setGeneratingForStudent] = useState<string | null>(null);
+  const [generatedStudentIds, setGeneratedStudentIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function loadCourses() {
@@ -76,6 +78,11 @@ export default function FacultyAnalyticsPage() {
 
       const data = await res.json();
       if (data.success) {
+        setGeneratedStudentIds((prev) => {
+          const next = new Set(prev);
+          next.add(studentId);
+          return next;
+        });
         toast('Personalized remediation package generated! Sent to Interventions tab for approval.', 'success');
         await loadAnalytics(selectedCourseId);
       } else {
@@ -259,17 +266,41 @@ export default function FacultyAnalyticsPage() {
                     <p className="text-[10px] text-gray-400 font-medium">Diagnostic Baseline</p>
                   </div>
 
-                  <Button
-                    size="sm"
-                    disabled={generatingForStudent === item.student.id}
-                    onClick={() => handleGenerateIntervention(item.student.id, item.weakTraits)}
-                    className="rounded-xl text-xs font-bold bg-[#3E2D68] hover:bg-[#322454] flex items-center space-x-1"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                    <span>
-                      {generatingForStudent === item.student.id ? 'Generating...' : 'Generate Remediation'}
-                    </span>
-                  </Button>
+                  {(() => {
+                    const isRemediated = Boolean(item.hasIntervention) || generatedStudentIds.has(item.student.id);
+                    const isGenerating = generatingForStudent === item.student.id;
+                    const isDisabled = isRemediated || isGenerating;
+
+                    return (
+                      <Button
+                        size="sm"
+                        disabled={isDisabled}
+                        onClick={() => handleGenerateIntervention(item.student.id, item.weakTraits)}
+                        className={`rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all ${
+                          isRemediated
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-300 cursor-not-allowed opacity-90'
+                            : 'bg-[#3E2D68] hover:bg-[#322454] text-white'
+                        }`}
+                      >
+                        {isGenerating ? (
+                          <>
+                            <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin" />
+                            <span>Generating...</span>
+                          </>
+                        ) : isRemediated ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Remediation Generated</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                            <span>Generate Remediation</span>
+                          </>
+                        )}
+                      </Button>
+                    );
+                  })()}
                 </div>
               </div>
             ))

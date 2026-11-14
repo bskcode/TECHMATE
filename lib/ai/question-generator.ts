@@ -11,6 +11,7 @@ import { BloomTrait } from '@/types';
 
 export interface GenerateQuestionsParams {
   courseTitle: string;
+  courseCode?: string;
   moduleTitle?: string;
   groundingText: string;
   questionCount: number;
@@ -19,7 +20,25 @@ export interface GenerateQuestionsParams {
 }
 
 /**
- * Strips administrative metadata lines (course code, instructor, term, credits)
+ * Strips subject codes (e.g. "CS101:", "CS-101 -", "19CS401 |", "CS101 ")
+ * to obtain the clean technical subject name.
+ */
+export function cleanSubjectTitle(title: string): string {
+  if (!title) return '';
+  let cleaned = title.trim();
+  // Strip code prefixes like "CS101: Introduction to AI" -> "Introduction to AI"
+  cleaned = cleaned.replace(/^[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?\s*[:\-–|]\s*/i, '');
+  // Strip leading code if space separated and followed by text: "CS101 Computer Science" -> "Computer Science"
+  cleaned = cleaned.replace(/^[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?\s+(?=[A-Za-z])/i, '');
+  // If the entire title was just a code like "CS101", return empty string
+  if (/^[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?$/i.test(cleaned.trim())) {
+    return '';
+  }
+  return cleaned.trim();
+}
+
+/**
+ * Strips administrative metadata lines (subject code, course code, instructor, term, credits, regulations)
  * so that questions are purely technical and subject-matter focused.
  */
 export function sanitizeTechnicalGroundingText(text: string): string {
@@ -27,35 +46,117 @@ export function sanitizeTechnicalGroundingText(text: string): string {
   const filtered = lines.filter((line) => {
     const trimmed = line.trim();
     if (!trimmed) return true;
+
+    // Filter administrative metadata labels with colon/hyphen:
     if (
-      /^(course\s+(code|title|name|id|number|credits?)|instructor|professor|faculty|term|semester|academic\s+year|credits?|credit\s+hours?|prerequisites?|office\s+hours?|email|contact|department|school|university|grading\s+policy|attendance|exam\s+date)\s*:/i.test(
+      /^(course\s+(code|title|name|id|number|credits?)|subject\s+(code|name|title)|sub\.?\s*code|paper\s*code|code|catalog\s*(no|number|num)|course\s*(no|number|num)|instructor|professor|faculty|lecturer|teacher|ta|teaching\s+assistant|term|semester|academic\s+year|year\s*\/\s*semester|batch|regulation|credits?|credit\s+hours?|l\s*[-]?\s*t\s*[-]?\s*p\s*[-]?\s*c|hours(\s*\/\s*week)?|prerequisites?|pre-requisite|corequisites?|office\s+hours?|email|contact|phone|website|classroom|class\s+room|venue|department|dept|school|university|college|institution|branch|degree|programme|program|grading\s+policy|evaluation\s+(scheme|criteria)|marks\s+distribution|internal\s+marks|external\s+marks|total\s+marks|passing\s+(minimum|marks)|exam\s+duration|duration|attendance|exam\s+date|midterm\s+date|final\s+exam|text\s*books?|prescribed\s+books?|reference\s*books?|references?|suggested\s+readings?|course\s+outcomes?|program\s+outcomes?|pos?|cos?)\s*[:\-–]/i.test(
         trimmed
       )
     ) {
       return false;
     }
-    if (/^COURSE\s+SYLLABUS\s*:/i.test(trimmed)) {
+
+    // Filter isolated subject codes or headers (e.g. "CS101", "CS8391", "19CS401")
+    if (/^[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?$/i.test(trimmed)) {
       return false;
     }
+
+    // Filter syllabus header lines:
+    if (/^(COURSE\s+SYLLABUS|SYLLABUS\s+FOR|COURSE\s+OUTLINE|CURRICULUM\s+STRUCTURE|DEPARTMENT\s+OF|FACULTY\s+OF)\s*[:\-–]?/i.test(trimmed)) {
+      return false;
+    }
+
     return true;
   });
   return filtered.join('\n');
 }
 
 /**
- * Checks if a question is asking about administrative metadata rather than technical subject matter.
+ * Checks if a question is asking about administrative metadata or subject codes rather than technical subject matter.
  */
-export function isAdministrativeQuestion(text: string): boolean {
-  const lower = text.toLowerCase();
-  return (
-    /what\s+is\s+the\s+course\s+(code|id|title|name|number)/i.test(lower) ||
-    /which\s+course\s+(code|title|number|outcome)/i.test(lower) ||
-    /who\s+is\s+the\s+(instructor|professor|faculty|lecturer)/i.test(lower) ||
-    /in\s+which\s+(term|semester|academic\s+year)/i.test(lower) ||
+export function isAdministrativeQuestion(text: string, correctAnswer?: string): boolean {
+  const lower = text.toLowerCase().trim();
+
+  if (
+    /what\s+is\s+the\s+(course|subject|paper|sub)\s*(code|id|title|name|number)/i.test(lower) ||
+    /which\s+(course|subject|paper)\s*(code|title|number|outcome)/i.test(lower) ||
+    /\b(subject|course|paper|sub)\s*code\b/i.test(lower) ||
+    /who\s+is\s+the\s+(instructor|professor|faculty|lecturer|teacher)/i.test(lower) ||
+    /in\s+which\s+(term|semester|academic\s*year|regulation|batch)/i.test(lower) ||
+    /what\s+is\s+the\s+(term|semester|academic\s*year|regulation|batch)/i.test(lower) ||
     /how\s+many\s+credits/i.test(lower) ||
-    /what\s+is\s+(co[1-6]|course\s+outcome)/i.test(lower) ||
-    /syllabus\s+code/i.test(lower)
+    /\bcredit\s*hours?\b/i.test(lower) ||
+    /what\s+is\s+(co[1-9]|course\s+outcome)/i.test(lower) ||
+    /which\s+course\s+outcome/i.test(lower) ||
+    /\bsyllabus\s*code\b/i.test(lower) ||
+    /\bprescribed\s+textbook\b/i.test(lower) ||
+    /\bgrading\s+policy\b/i.test(lower) ||
+    /\binternal\s+marks\b/i.test(lower) ||
+    /\bpassing\s+(marks|minimum)\b/i.test(lower) ||
+    /under\s+subject\s+code\b/i.test(lower) ||
+    /course\s+code\s+for\s+this\s+subject/i.test(lower) ||
+    /what\s+is\s+the\s+subject\s+name/i.test(lower) ||
+    /subject\s+code\s+is\s+assigned/i.test(lower)
+  ) {
+    return true;
+  }
+
+  // If correct answer is a pure subject code or administrative metadata value
+  if (correctAnswer) {
+    const trimmedAns = correctAnswer.trim();
+    if (/^[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?$/i.test(trimmedAns)) return true;
+    if (/^(fall|spring|summer)\s+\d{4}$/i.test(trimmedAns)) return true;
+    if (/^\d+\s*credits?$/i.test(trimmedAns)) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Post-processes question text, options, explanations, and hints to ensure
+ * zero subject code mentions or awkward course code prefixes.
+ */
+export function sanitizeQuestionText(text: string, courseCode?: string): string {
+  if (!text) return '';
+  let cleaned = text.trim();
+
+  // Strip prefixes like "In CS101: Introduction to AI, " or "In CS101, " or "In the course CS101, "
+  cleaned = cleaned.replace(/^In\s+[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?\s*[:\-–]\s*[A-Za-z\s&'-]+,\s*/i, '');
+  cleaned = cleaned.replace(/^In\s+[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?,\s*/i, '');
+  cleaned = cleaned.replace(/^In\s+the\s+course\s+[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?(?:\s*[:\-–]\s*[A-Za-z\s&'-]+)?,\s*/i, '');
+  cleaned = cleaned.replace(/^According\s+to\s+(?:the\s+)?[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?(?:\s+syllabus|\s+notes)?,\s*/i, '');
+  cleaned = cleaned.replace(/^Under\s+subject\s+code\s+[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?(?:,\s*)?/i, '');
+  cleaned = cleaned.replace(/^Fill\s+in\s+the\s+blank:\s*In\s+[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?(?:\s*[:\-–]\s*[A-Za-z\s&'-]+)?,\s*/i, 'Fill in the blank: ');
+  cleaned = cleaned.replace(/^True\s+or\s+False:\s*In\s+[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?(?:\s*[:\-–]\s*[A-Za-z\s&'-]+)?,\s*/i, 'True or False: ');
+  cleaned = cleaned.replace(/^When\s+evaluating\s+system\s+trade-offs\s+in\s+[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?(?:\s*[:\-–]\s*[A-Za-z\s&'-]+)?,\s*/i, 'When evaluating system trade-offs, ');
+  cleaned = cleaned.replace(/^A\s+software\s+engineer\s+working\s+in\s+[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?(?:\s*[:\-–]\s*[A-Za-z\s&'-]+)?\s+must\s+satisfy/i, 'A software engineer must satisfy');
+
+  // Strip any inline course code if passed explicitly (e.g. "CS101")
+  if (courseCode && courseCode.trim().length > 1) {
+    const escapedCode = courseCode.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    cleaned = cleaned.replace(new RegExp(`^In\\s+${escapedCode},\\s*`, 'i'), '');
+    cleaned = cleaned.replace(new RegExp(`\\b${escapedCode}\\b[:\\-–]?\\s*`, 'gi'), '');
+  }
+
+  // Also clean any leftover double spaces
+  cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
+
+  // Ensure capitalization after prefix phrases
+  cleaned = cleaned.replace(
+    /^(Fill\s+in\s+the\s+blank:\s*)([a-z])/i,
+    (_, prefix, letter) => `${prefix}${letter.toUpperCase()}`
   );
+  cleaned = cleaned.replace(
+    /^(True\s+or\s+False:\s*)([a-z])/i,
+    (_, prefix, letter) => `${prefix}${letter.toUpperCase()}`
+  );
+
+  // Ensure capitalization of the first letter
+  if (cleaned.length > 0) {
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+
+  return cleaned;
 }
 
 const SYSTEM_PROMPT = `You are a distinguished university professor and academic assessment architect for AdaptiveLearn AI.
@@ -63,9 +164,10 @@ Your absolute duty is to generate assessment question packages grounded STRICTLY
 
 STRICT TECHNICAL SUBJECT-MATTER DIRECTIVES:
 1. RIGOROUS TECHNICAL SUBJECT CONTENT ONLY: Every question must test academic, technical, subject-matter concepts (algorithms, mathematical logic, code execution, data structure invariants, operational mechanisms, formulas, computational complexity, architectural trade-offs, or formal definitions).
-2. ABSOLUTE PROHIBITION ON ADMINISTRATIVE / SYLLABUS METADATA QUESTIONS:
-   - NEVER ask questions about the course code, course title, course number, course name, instructor name, semester, term, academic year, credit hours, office hours, syllabus organization, or course outcome codes (e.g. NEVER ask "What is the course code?", "What is the course title?", "Who is the instructor?", "Which course outcome addresses X?").
-   - If the grounding text contains headers like course codes or instructors, IGNORE them completely. Only test the actual technical domain concepts.
+2. ABSOLUTE PROHIBITION ON ADMINISTRATIVE / SYLLABUS / SUBJECT CODE QUESTIONS:
+   - NEVER ask questions about the course code, subject code, course title, course number, course name, instructor name, semester, term, academic year, credit hours, office hours, syllabus organization, or course outcome codes (e.g. NEVER ask "What is the course code?", "What is the subject code?", "What is the course title?", "Who is the instructor?", "Which course outcome addresses X?").
+   - NEVER include course codes or subject codes (such as CS101, DS301, CS8391, etc.) anywhere in question texts, options, explanations, or answers. Do NOT start questions with "In CS101," or "Under subject code...".
+   - If the grounding text contains headers like course codes, subject codes, or instructors, IGNORE them completely. Only test the actual technical domain concepts.
 3. EXCLUSIVE SOURCE MATERIAL: Every question, option, correct answer, hint, and explanation MUST be directly derived from technical content in the provided course material text.
 4. ZERO EXTERNAL INVENTIONS: Under NO circumstances introduce outside facts not grounded in the material.
 5. OBJECTIVE EVALUATION: ONLY generate deterministic questions: 'mcq', 'multiple_select', 'true_false', 'numeric', or 'fill_in_blank'.
@@ -77,7 +179,7 @@ STRICT TECHNICAL SUBJECT-MATTER DIRECTIVES:
    - creativity: formulating hypotheses, heuristic approaches, or synthesis
    - evaluation: appraising trade-offs, optimality, or design decisions
 7. MANDATORY FIELDS PER QUESTION:
-   - question_text (unambiguous, professional university-grade question)
+   - question_text (unambiguous, professional university-grade technical question without subject code prefixes)
    - question_type ('mcq' | 'multiple_select' | 'true_false' | 'numeric' | 'fill_in_blank')
    - options (array of 4 distinct plausible choices for mcq / multiple_select; ['True', 'False'] for true_false)
    - correct_answer (the exact correct option string; for multiple_select, comma-separated options)
@@ -88,8 +190,8 @@ STRICT TECHNICAL SUBJECT-MATTER DIRECTIVES:
    - max_marks (usually 5.0)
    - primary_trait (one of Bloom's 6 dimensions)
    - difficulty ('easy' | 'medium' | 'hard')
-   - hint_1 (first progressive hint guiding student towards the concept from the text)
-   - hint_2 (second deeper hint with formula or direct clue from the text)
+   - hint_1 (HIGHLY TECHNICAL CONCEPTUAL HINT: Explain the governing theorem, invariant, data structure property, operational rule, or formula needed to approach this specific question. Must be actionable and technically sound. NEVER write meta-text like "Review your notes" or word-length clues.)
+   - hint_2 (DEEP TECHNICAL APPLICATION CLUE: Provide the concrete analytical derivation, mathematical step, invariant comparison, or elimination logic that helps the student deduce the correct answer.)
    - evaluation_method ('deterministic')
    - source_reference (explicit citation of the uploaded material section)
 
@@ -100,6 +202,7 @@ export async function generateQuestionPackages(
 ): Promise<QuestionPackageZod[]> {
   const {
     courseTitle,
+    courseCode,
     moduleTitle,
     groundingText,
     questionCount = 5,
@@ -107,10 +210,11 @@ export async function generateQuestionPackages(
     difficulty = 'medium',
   } = params;
 
-  // Sanitize grounding text to ensure zero administrative metadata is ingested
+  // Sanitize grounding text to ensure zero administrative metadata or subject codes are ingested
   const sanitizedText = sanitizeTechnicalGroundingText(groundingText);
+  const cleanTitle = cleanSubjectTitle(courseTitle) || courseTitle;
 
-  const userPrompt = `Course: ${courseTitle}
+  const userPrompt = `Subject / Topic: ${cleanTitle}
 ${moduleTitle ? `Assessment / Module: ${moduleTitle}` : ''}
 Target Bloom Traits: ${targetTraits.join(', ')}
 Difficulty: ${difficulty}
@@ -125,11 +229,12 @@ ${sanitizedText.slice(0, 35000)}
 
 CRITICAL GROUNDING & TECHNICAL DIRECTIVES:
 1. Every question MUST be a STANDARD, TECHNICAL SUBJECT-MATTER question testing algorithms, data structures, logic, formulas, or operational mechanisms.
-2. ABSOLUTELY NO ADMINISTRATIVE QUESTIONS: Do NOT ask for course code, course title, instructor, term, credits, or CO numbers.
-3. All options, correct answers, explanations, and hints must be formulated EXCLUSIVELY and DIRECTLY from the technical lecture text above.
-4. Output ONLY valid JSON with this exact structure:
+2. ABSOLUTELY NO ADMINISTRATIVE QUESTIONS: Do NOT ask for course code, subject code, course title, instructor, term, credits, or CO numbers.
+3. NEVER mention the course code or subject code (e.g. CS101, DS301, etc.) anywhere in question_text, options, correct_answer, explanation, or hints. Questions must be strictly technical academic questions.
+4. All options, correct answers, explanations, and hints must be formulated EXCLUSIVELY and DIRECTLY from the technical lecture text above.
+5. Output ONLY valid JSON with this exact structure:
 {
-  "assessment_title": "${courseTitle} - ${moduleTitle || 'Assessment'}",
+  "assessment_title": "${cleanTitle} - ${moduleTitle || 'Assessment'}",
   "assessment_description": "Standard university subject assessment grounded strictly in course materials.",
   "questions": [
     {
@@ -144,8 +249,8 @@ CRITICAL GROUNDING & TECHNICAL DIRECTIVES:
       "max_marks": 5,
       "primary_trait": "understanding",
       "difficulty": "${difficulty}",
-      "hint_1": "Progressive clue 1 from text",
-      "hint_2": "Progressive clue 2 with deeper quote/formula from text",
+      "hint_1": "Technical concept/formula hint explaining the governing invariant or mechanism needed to solve this question",
+      "hint_2": "Technical deductive clue showing the exact operational step or invariant property that unlocks the correct answer",
       "evaluation_method": "deterministic",
       "source_reference": "Document citation"
     }
@@ -176,10 +281,19 @@ CRITICAL GROUNDING & TECHNICAL DIRECTIVES:
       const parsed = JSON.parse(cleanedJson);
       const validated = AssessmentGenerationResponseSchema.parse(parsed);
 
-      // Filter out any administrative metadata question if Groq slipped one in
-      const technicalQuestions = validated.questions.filter(
-        (q) => !isAdministrativeQuestion(q.question_text)
-      );
+      // Filter out any administrative metadata question or subject code questions if Groq slipped one in
+      const technicalQuestions = validated.questions
+        .filter((q) => !isAdministrativeQuestion(q.question_text, q.correct_answer))
+        .map((q) => ({
+          ...q,
+          question_text: sanitizeQuestionText(q.question_text, courseCode),
+          hint_1: sanitizeQuestionText(q.hint_1, courseCode),
+          hint_2: sanitizeQuestionText(q.hint_2, courseCode),
+          explanation: sanitizeQuestionText(q.explanation, courseCode),
+          options: q.options ? q.options.map((opt) => sanitizeQuestionText(opt, courseCode)) : undefined,
+          correct_answer: sanitizeQuestionText(q.correct_answer, courseCode),
+        }))
+        .filter((q) => !isAdministrativeQuestion(q.question_text, q.correct_answer));
 
       if (technicalQuestions.length >= questionCount) {
         return technicalQuestions.slice(0, questionCount);
@@ -189,10 +303,11 @@ CRITICAL GROUNDING & TECHNICAL DIRECTIVES:
       if (technicalQuestions.length > 0) {
         const needed = questionCount - technicalQuestions.length;
         const supplemental = generateGroundedFallbackPackages(
-          courseTitle,
+          cleanTitle,
           sanitizedText,
           targetTraits,
-          needed
+          needed,
+          courseCode
         );
         return [...technicalQuestions, ...supplemental].slice(0, questionCount);
       }
@@ -202,7 +317,7 @@ CRITICAL GROUNDING & TECHNICAL DIRECTIVES:
   }
 
   // Grounded Deterministic Generator Fallback strictly using sanitized technical text
-  return generateGroundedFallbackPackages(courseTitle, sanitizedText, targetTraits, questionCount);
+  return generateGroundedFallbackPackages(cleanTitle, sanitizedText, targetTraits, questionCount, courseCode);
 }
 
 interface ExtractedFact {
@@ -212,7 +327,8 @@ interface ExtractedFact {
   raw: string;
 }
 
-const ADMINISTRATIVE_SUBJECT_REGEX = /^(course|course\s+code|course\s+title|course\s+name|course\s+id|course\s+number|instructor|professor|faculty|term|semester|academic\s*year|credits?|credit\s+hours?|prerequisites?|office\s*hours?|email|contact|department|school|university|syllabus|grading|grade|evaluation\s+criteria|course\s+outcome|co\d+|outcome\d*|module\s+\d+|unit\s+\d+|chapter\s+\d+|lecture\s+\d+|textbook|reference\s+books?)$/i;
+const ADMINISTRATIVE_SUBJECT_REGEX =
+  /^(course|course\s+code|course\s+title|course\s+name|course\s+id|course\s+number|subject|subject\s+code|subject\s+name|sub\s+code|sub\.?\s*code|paper\s+code|code|catalog\s+number|instructor|professor|faculty|lecturer|teacher|term|semester|academic\s*year|batch|regulation|degree|programme|program|branch|credits?|credit\s+hours?|l\s*t\s*p\s*c|hours|duration|prerequisites?|office\s*hours?|email|contact|department|dept|school|university|college|syllabus|grading|grade|evaluation\s+criteria|internal\s+marks|external\s+marks|total\s+marks|passing\s+marks|course\s+outcome|co\d+|outcome\d*|module\s+\d+|unit\s+\d+|chapter\s+\d+|lecture\s+\d+|textbook|text\s*books|reference\s*books?|references?|[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?)$/i;
 
 /**
  * Parses factual definitions, equations, and technical statements directly from the uploaded text,
@@ -235,7 +351,8 @@ function extractFactsFromText(text: string): ExtractedFact[] {
 
       // Skip administrative subjects or values
       if (ADMINISTRATIVE_SUBJECT_REGEX.test(subject)) continue;
-      if (/^(CS|DS|AI|EE|ME|MATH|IT|SE)\d+[A-Z]?$/i.test(detail)) continue;
+      if (/^[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?$/i.test(subject)) continue;
+      if (/^[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?$/i.test(detail)) continue;
       if (/^Fall\s+\d{4}|Spring\s+\d{4}/i.test(detail)) continue;
 
       facts.push({
@@ -255,6 +372,8 @@ function extractFactsFromText(text: string): ExtractedFact[] {
       const detail = copulaMatch[3].trim();
 
       if (ADMINISTRATIVE_SUBJECT_REGEX.test(subject)) continue;
+      if (/^[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?$/i.test(subject)) continue;
+      if (/^[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?$/i.test(detail)) continue;
 
       facts.push({
         subject,
@@ -272,7 +391,7 @@ function extractFactsFromText(text: string): ExtractedFact[] {
 
       const words = line.split(' ');
       const subject = words.slice(0, Math.min(4, words.length)).join(' ');
-      if (!ADMINISTRATIVE_SUBJECT_REGEX.test(subject)) {
+      if (!ADMINISTRATIVE_SUBJECT_REGEX.test(subject) && !/^[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?$/i.test(subject)) {
         facts.push({
           subject,
           detail: line,
@@ -294,10 +413,12 @@ export function generateGroundedFallbackPackages(
   courseTitle: string,
   groundingText: string,
   targetTraits: BloomTrait[] = ['remembering', 'understanding', 'application', 'analysis', 'creativity', 'evaluation'],
-  count: number = 6
+  count: number = 6,
+  courseCode?: string
 ): QuestionPackageZod[] {
   const packages: QuestionPackageZod[] = [];
   const sanitized = sanitizeTechnicalGroundingText(groundingText);
+  const cleanTitle = cleanSubjectTitle(courseTitle) || 'Course Topic';
   const facts = extractFactsFromText(sanitized);
 
   // If no structured facts extracted, create sentences from plain technical paragraphs
@@ -316,17 +437,17 @@ export function generateGroundedFallbackPackages(
     const factIndex = facts.length > 0 ? i % facts.length : 0;
     const fact = facts[factIndex];
 
-    const subject = fact?.subject || `Core Principle ${i + 1}`;
+    const subject = fact?.subject || `Core Technical Principle ${i + 1}`;
     const detail =
       fact?.detail ||
       fallbackSentences[i % Math.max(1, fallbackSentences.length)] ||
-      `Technical algorithmic foundations in ${courseTitle}`;
+      `Technical algorithmic foundations in ${cleanTitle}`;
     const sourceRef = `Course Lecture Notes: ${subject}`;
 
     switch (trait) {
       case 'remembering': {
         const questionText = fact?.relation
-          ? `In ${courseTitle}, what ${fact.relation} ${subject}?`
+          ? `What ${fact.relation} "${subject}"?`
           : `Which statement accurately identifies the technical definition or property of "${subject}"?`;
         const correctAnswer = detail.endsWith('.') ? detail.slice(0, -1) : detail;
         const distractor1 = `It inverts the standard operation and operates without bounded termination.`;
@@ -334,7 +455,7 @@ export function generateGroundedFallbackPackages(
         const distractor3 = `It applies exclusively to deprecated legacy protocols without runtime guarantees.`;
 
         packages.push({
-          question_text: questionText,
+          question_text: sanitizeQuestionText(questionText, courseCode),
           question_type: 'mcq',
           options: [correctAnswer, distractor1, distractor2, distractor3].sort(),
           correct_answer: correctAnswer,
@@ -353,8 +474,8 @@ export function generateGroundedFallbackPackages(
           primary_trait: 'remembering',
           secondary_trait_weight: 0.0,
           difficulty: 'easy',
-          hint_1: `Review the technical definition of ${subject} in your lecture notes.`,
-          hint_2: `The notes define it as: "${detail.slice(0, 80)}..."`,
+          hint_1: `Analyze the governing theoretical definition of "${subject}": it formally establishes ${fact?.relation || 'the operation'} defined by: "${detail.slice(0, 80)}".`,
+          hint_2: `Recall that "${subject}" maintains the exact technical invariant: "${detail.slice(0, 110)}". Compare this invariant directly against the given options.`,
           evaluation_method: 'deterministic',
           source_reference: sourceRef,
         });
@@ -364,11 +485,11 @@ export function generateGroundedFallbackPackages(
       case 'understanding': {
         const isTrue = i % 2 === 0;
         const statement = isTrue
-          ? `In ${courseTitle}, ${subject} ${fact?.relation || 'is defined as'}: "${detail}".`
-          : `In ${courseTitle}, ${subject} operates in reverse and contradicts: "${detail}".`;
+          ? `"${subject}" ${fact?.relation || 'is defined as'}: "${detail}".`
+          : `"${subject}" operates in reverse and contradicts: "${detail}".`;
 
         packages.push({
-          question_text: `True or False: ${statement}`,
+          question_text: sanitizeQuestionText(`True or False: ${statement}`, courseCode),
           question_type: 'true_false',
           options: ['True', 'False'],
           correct_answer: isTrue ? 'True' : 'False',
@@ -387,8 +508,8 @@ export function generateGroundedFallbackPackages(
           primary_trait: 'understanding',
           secondary_trait_weight: 0.0,
           difficulty: 'easy',
-          hint_1: `Examine the operational mechanics of ${subject}.`,
-          hint_2: `Compare the assertion directly with the lecture statement: "${detail.slice(0, 60)}"`,
+          hint_1: `Analyze the formal operational mechanism of "${subject}": evaluate whether it correctly ${fact?.relation || 'operates on'} "${detail.slice(0, 80)}".`,
+          hint_2: `Compare the assertion against the foundational principle: the lecture specification states that "${detail.slice(0, 100)}". Check if the operational direction is preserved or contradicted.`,
           evaluation_method: 'deterministic',
           source_reference: sourceRef,
         });
@@ -396,7 +517,7 @@ export function generateGroundedFallbackPackages(
       }
 
       case 'application': {
-        const questionText = `A software engineer working in ${courseTitle} must satisfy the following requirement: "${detail}". Which core concept or mechanism should be applied?`;
+        const questionText = `A software engineer must satisfy the following technical requirement: "${detail}". Which core concept or mechanism should be applied?`;
         const otherSubjects = facts
           .filter((_, idx) => idx !== factIndex)
           .map((f) => f.subject)
@@ -407,7 +528,7 @@ export function generateGroundedFallbackPackages(
         }
 
         packages.push({
-          question_text: questionText,
+          question_text: sanitizeQuestionText(questionText, courseCode),
           question_type: 'mcq',
           options: [subject, ...otherSubjects].sort(),
           correct_answer: subject,
@@ -426,8 +547,8 @@ export function generateGroundedFallbackPackages(
           primary_trait: 'application',
           secondary_trait_weight: 0.0,
           difficulty: 'medium',
-          hint_1: `Consider which data structure, algorithm, or theorem addresses this requirement.`,
-          hint_2: `The correct technical mechanism is ${subject}.`,
+          hint_1: `Analyze the technical requirement: "${detail.slice(0, 85)}". Determine which algorithmic structure or formal mechanism guarantees this exact invariant under nominal runtime conditions.`,
+          hint_2: `The required technical mechanism is "${subject}", specifically engineered to handle this invariant by ensuring that "${detail.slice(0, 100)}".`,
           evaluation_method: 'deterministic',
           source_reference: sourceRef,
         });
@@ -435,10 +556,10 @@ export function generateGroundedFallbackPackages(
       }
 
       case 'analysis': {
-        const questionText = `Fill in the blank: In ${courseTitle}, the technical mechanism that ${fact?.relation || 'is characterized as'} "${detail}" is ________.`;
+        const questionText = `Fill in the blank: The technical mechanism that ${fact?.relation || 'is characterized as'} "${detail}" is ________.`;
 
         packages.push({
-          question_text: questionText,
+          question_text: sanitizeQuestionText(questionText, courseCode),
           question_type: 'fill_in_blank',
           correct_answer: subject,
           accepted_variations: [subject, subject.toLowerCase(), subject.toUpperCase()],
@@ -456,8 +577,8 @@ export function generateGroundedFallbackPackages(
           primary_trait: 'analysis',
           secondary_trait_weight: 0.0,
           difficulty: 'medium',
-          hint_1: `The term has ${subject.split(' ').length} word(s).`,
-          hint_2: `The term begins with the letter "${subject.charAt(0)}".`,
+          hint_1: `Examine the operational specification: "${detail.slice(0, 85)}". Identify the formal technical mechanism that exhibits this exact asymptotic or structural characteristic.`,
+          hint_2: `The required technical component is "${subject}", which provides the operational behavior: "${detail.slice(0, 100)}".`,
           evaluation_method: 'deterministic',
           source_reference: sourceRef,
         });
@@ -467,12 +588,12 @@ export function generateGroundedFallbackPackages(
       case 'creativity': {
         const questionText = `Which of the following characteristics accurately represent "${subject}" as established in the course material? (Select all that apply)`;
         const correct1 = detail.slice(0, 80);
-        const correct2 = `Governed by the foundational axioms of ${courseTitle}`;
+        const correct2 = `Satisfies the foundational theoretical properties of this mechanism`;
         const incorrect1 = `An obsolete methodology that violates algorithmic correctness`;
         const incorrect2 = `Requires unbounded polynomial memory overhead in the base case`;
 
         packages.push({
-          question_text: questionText,
+          question_text: sanitizeQuestionText(questionText, courseCode),
           question_type: 'multiple_select',
           options: [correct1, correct2, incorrect1, incorrect2],
           correct_answer: `${correct1}, ${correct2}`,
@@ -491,8 +612,8 @@ export function generateGroundedFallbackPackages(
           primary_trait: 'creativity',
           secondary_trait_weight: 0.0,
           difficulty: 'medium',
-          hint_1: `Identify the two statements that are verified by your technical lecture notes.`,
-          hint_2: `Options citing violations of correctness or unbounded memory are incorrect distractors.`,
+          hint_1: `Examine each statement against the theoretical properties of "${subject}". Identify the properties that are mathematically and computationally sound according to the technical lecture notes.`,
+          hint_2: `Valid properties must satisfy: "${detail.slice(0, 85)}" while upholding formal algorithmic correctness without assuming unbounded memory or deprecated logic.`,
           evaluation_method: 'deterministic',
           source_reference: sourceRef,
         });
@@ -500,14 +621,14 @@ export function generateGroundedFallbackPackages(
       }
 
       case 'evaluation': {
-        const questionText = `When evaluating system trade-offs in ${courseTitle}, what is the primary operational trade-off or constraint associated with "${subject}"?`;
+        const questionText = `When evaluating system trade-offs and performance bounds, what is the primary operational constraint or trade-off associated with "${subject}"?`;
         const correctEvaluation = `It provides ${detail.slice(0, 90)}, subject to its theoretical invariants.`;
         const distractor1 = `It guarantees zero computational overhead at the cost of infinite data corruption.`;
         const distractor2 = `It inverts the memory hierarchy and bypasses the CPU cache entirely.`;
         const distractor3 = `It is nondeterministic and cannot be formally analyzed.`;
 
         packages.push({
-          question_text: questionText,
+          question_text: sanitizeQuestionText(questionText, courseCode),
           question_type: 'mcq',
           options: [correctEvaluation, distractor1, distractor2, distractor3].sort(),
           correct_answer: correctEvaluation,
@@ -526,8 +647,8 @@ export function generateGroundedFallbackPackages(
           primary_trait: 'evaluation',
           secondary_trait_weight: 0.0,
           difficulty: 'hard',
-          hint_1: `Focus on the formal bounds and theoretical invariants described in the material.`,
-          hint_2: `Notice that: "${detail.slice(0, 60)}..."`,
+          hint_1: `Analyze the operational trade-offs and performance bounds of "${subject}": evaluate how its asymptotic bounds and theoretical invariants constrain system latency and throughput.`,
+          hint_2: `The governing constraint stems directly from its operational mechanism: "${detail.slice(0, 95)}". Focus on the trade-off between correctness guarantees and memory overhead.`,
           evaluation_method: 'deterministic',
           source_reference: sourceRef,
         });

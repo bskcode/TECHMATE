@@ -74,7 +74,8 @@ export async function POST(
 
     // Call Groq AI generator (with intelligent fallback) to produce complete packages strictly from uploaded material
     const questionPackages = await generateQuestionPackages({
-      courseTitle: `${course.code}: ${course.title}`,
+      courseTitle: course.title,
+      courseCode: course.code,
       moduleTitle,
       groundingText,
       questionCount,

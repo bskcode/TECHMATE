@@ -785,12 +785,18 @@ export const db = {
         )
         .sort((a, b) => new Date(b.submitted_at || b.started_at).getTime() - new Date(a.submitted_at || a.started_at).getTime());
       const latestAttempt = studentAttempts[0];
+      const existingIntervention = mockDb.interventions.find(
+        (inv) => inv.student_id === s.id && inv.course_id === courseId
+      );
       return {
         student: s,
         weakTraits,
         latestScore: latestAttempt?.percentage ?? 0,
         hasAttempt: Boolean(latestAttempt),
         needsHelp: weakTraits.length > 0 || (latestAttempt ? latestAttempt.percentage < 60 : false),
+        hasIntervention: Boolean(existingIntervention),
+        interventionId: existingIntervention?.id,
+        interventionStatus: existingIntervention?.status,
       };
     });
 
