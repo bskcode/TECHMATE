@@ -46,11 +46,19 @@ export default function StudentDashboard() {
         ]);
         const [cData, iData] = await Promise.all([cRes.json(), iRes.json()]);
         const courseList = cData.courses || [];
-        setCourses(courseList);
+        const allList = cData.allCourses || [];
+        // Combine enrolled and available faculty courses
+        const merged = [...courseList];
+        allList.forEach((ac: any) => {
+          if (!merged.some((c: any) => c.id === ac.id)) {
+            merged.push(ac);
+          }
+        });
+        setCourses(merged);
         setInterventions(iData.interventions || []);
 
-        if (courseList[0]?.id) {
-          setSelectedCourseId(courseList[0].id);
+        if (merged[0]?.id) {
+          setSelectedCourseId(merged[0].id);
         } else {
           setSelectedCourseId('');
           setAssessments([]);

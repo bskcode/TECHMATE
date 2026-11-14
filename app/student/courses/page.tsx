@@ -31,10 +31,11 @@ export default function StudentCoursesPage() {
   const activeStudent = getActiveUser('student');
 
   const [courses, setCourses] = useState<any[]>([]);
+  const [allCourses, setAllCourses] = useState<any[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [courseDetails, setCourseDetails] = useState<any>(null);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
-  const [enrollCode, setEnrollCode] = useState('');
+  const [selectedEnrollCourseId, setSelectedEnrollCourseId] = useState('');
   const [enrolling, setEnrolling] = useState(false);
   const [previewMaterial, setPreviewMaterial] = useState<any>(null);
 
@@ -46,13 +47,28 @@ export default function StudentCoursesPage() {
     loadCourses();
   }, [activeStudent.id]);
 
-  async function loadCourses() {
+  async function loadCourses(preferredCourseId?: string) {
     const res = await fetch(`/api/courses?userId=${activeStudent.id}&role=student`);
     const data = await res.json();
     const list = data.courses || [];
+    const all = data.allCourses || [];
     setCourses(list);
-    if (list[0]) {
-      loadCourseDetails(list[0].id);
+    setAllCourses(all);
+
+    // Pick first non-enrolled course as default for enroll dropdown
+    const availableToEnroll = all.filter((ac: any) => !list.some((lc: any) => lc.id === ac.id));
+    if (availableToEnroll[0]) {
+      setSelectedEnrollCourseId(availableToEnroll[0].id);
+    } else if (all[0]) {
+      setSelectedEnrollCourseId(all[0].id);
+    }
+
+    const courseToSelect = preferredCourseId
+      ? list.find((c: any) => c.id === preferredCourseId) || list[0]
+      : list[0];
+
+    if (courseToSelect) {
+      loadCourseDetails(courseToSelect.id);
     } else {
       setSelectedCourse(null);
       setCourseDetails(null);
@@ -68,13 +84,17 @@ export default function StudentCoursesPage() {
 
   const handleEnroll = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedEnrollCourseId) {
+      toast('Please choose a course from the dropdown.', 'warning');
+      return;
+    }
     setEnrolling(true);
     try {
       const res = await fetch('/api/courses/enroll', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          code: enrollCode,
+          course_id: selectedEnrollCourseId,
           student_id: activeStudent.id,
         }),
       });
@@ -82,9 +102,8 @@ export default function StudentCoursesPage() {
       const data = await res.json();
       if (data.success) {
         setShowEnrollModal(false);
-        setEnrollCode('');
         toast(data.message, 'success');
-        await loadCourses();
+        await loadCourses(selectedEnrollCourseId);
       } else {
         toast(data.error || 'Enrollment failed', 'error');
       }
@@ -130,13 +149,34 @@ export default function StudentCoursesPage() {
           </p>
         </div>
 
-        <Button
-          onClick={() => setShowEnrollModal(true)}
-          className="rounded-xl text-xs font-bold bg-[#3E2D68] hover:bg-[#3E2D68]/90 text-white flex items-center space-x-1.5 shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Join Course with Code</span>
-        </Button>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          {courses.length > 0 && (
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider shrink-0">
+                Active Course:
+              </span>
+              <select
+                value={selectedCourse?.id || ''}
+                onChange={(e) => loadCourseDetails(e.target.value)}
+                className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-[#3E2D68] shadow-sm focus:outline-none focus:border-[#3E2D68]"
+              >
+                {courses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code}: {c.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <Button
+            onClick={() => setShowEnrollModal(true)}
+            className="rounded-xl text-xs font-bold bg-[#3E2D68] hover:bg-[#3E2D68]/90 text-white flex items-center space-x-1.5 shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Enroll in Course</span>
+          </Button>
+        </div>
       </div>
 
       {/* Courses List */}
@@ -585,12 +625,15 @@ export default function StudentCoursesPage() {
         </div>
       )}
 
-      {/* Enroll Modal */}
+      {/* Enroll in Course Modal — Dropdown Selection (No manual code typing required) */}
       {showEnrollModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 animate-scaleUp">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-scaleUp">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-gray-900">Join a Course</h3>
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Choose Course to Enroll</h3>
+                <p className="text-[11px] text-gray-400">Select any course created by faculty from the dropdown</p>
+              </div>
               <button
                 onClick={() => setShowEnrollModal(false)}
                 className="text-gray-400 hover:text-gray-600 font-bold"
@@ -601,16 +644,49 @@ export default function StudentCoursesPage() {
 
             <form onSubmit={handleEnroll} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Enter Enrollment Code</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. CS101A"
-                  value={enrollCode}
-                  onChange={(e) => setEnrollCode(e.target.value.toUpperCase())}
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs font-mono font-bold uppercase focus:outline-none focus:border-[#3E2D68]"
-                />
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Available Faculty Courses
+                </label>
+                {allCourses.length === 0 ? (
+                  <p className="text-xs text-gray-400 py-3">No courses created yet by faculty.</p>
+                ) : (
+                  <select
+                    value={selectedEnrollCourseId}
+                    onChange={(e) => setSelectedEnrollCourseId(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-xs font-semibold text-gray-800 bg-white focus:outline-none focus:border-[#3E2D68]"
+                  >
+                    {allCourses.map((c) => {
+                      const isAlreadyEnrolled = courses.some((ec) => ec.id === c.id);
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {c.code}: {c.title} ({c.term}) {isAlreadyEnrolled ? '— [Enrolled]' : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
               </div>
+
+              {selectedEnrollCourseId && (
+                (() => {
+                  const curr = allCourses.find((c) => c.id === selectedEnrollCourseId);
+                  const isEnrolled = courses.some((ec) => ec.id === selectedEnrollCourseId);
+                  if (!curr) return null;
+                  return (
+                    <div className="p-3 bg-purple-50/60 rounded-2xl border border-purple-100 text-xs space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[#3E2D68]">{curr.code} • {curr.term}</span>
+                        {isEnrolled && (
+                          <Badge variant="emerald" className="text-[10px] font-bold">
+                            Enrolled
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-gray-600 line-clamp-2">{curr.description || 'Course curriculum and learning outcomes.'}</p>
+                    </div>
+                  );
+                })()
+              )}
 
               <div className="flex items-center justify-end space-x-2 pt-2">
                 <Button
@@ -623,10 +699,10 @@ export default function StudentCoursesPage() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={enrolling}
-                  className="rounded-xl text-xs font-bold bg-[#3E2D68]"
+                  disabled={enrolling || allCourses.length === 0}
+                  className="rounded-xl text-xs font-bold bg-[#3E2D68] hover:bg-[#3E2D68]/90 text-white"
                 >
-                  {enrolling ? 'Enrolling...' : 'Join Course'}
+                  {enrolling ? 'Enrolling...' : 'Enroll in Selected Course'}
                 </Button>
               </div>
             </form>

@@ -67,11 +67,19 @@ export default function StudentAssessmentExamRoom() {
       const cRes = await fetch(`/api/courses?userId=${activeStudent.id}&role=student`);
       const cData = await cRes.json();
       const list = cData.courses || [];
-      setCourses(list);
+      const all = cData.allCourses || [];
+      // Present all faculty-created courses in the dropdown so students can choose immediately
+      const mergedCourses = [...list];
+      all.forEach((ac: any) => {
+        if (!mergedCourses.some((c: any) => c.id === ac.id)) {
+          mergedCourses.push(ac);
+        }
+      });
+      setCourses(mergedCourses);
 
-      if (list[0]?.id) {
-        setSelectedCourseId(list[0].id);
-        await loadAssessmentsForCourse(list[0].id);
+      if (mergedCourses[0]?.id) {
+        setSelectedCourseId(mergedCourses[0].id);
+        await loadAssessmentsForCourse(mergedCourses[0].id);
       } else {
         setSelectedCourseId('');
         setAssessments([]);
@@ -343,8 +351,14 @@ export default function StudentAssessmentExamRoom() {
               <select
                 value={selectedCourseId}
                 onChange={(e) => {
-                  setSelectedCourseId(e.target.value);
-                  loadAssessmentsForCourse(e.target.value);
+                  const newId = e.target.value;
+                  setSelectedCourseId(newId);
+                  loadAssessmentsForCourse(newId);
+                  fetch('/api/courses/enroll', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ course_id: newId, student_id: activeStudent.id }),
+                  }).catch(() => {});
                 }}
                 className="w-full rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold text-[#3E2D68] bg-white shadow-sm focus:outline-none"
               >

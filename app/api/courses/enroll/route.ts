@@ -4,16 +4,17 @@ import { db } from '@/lib/db';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { code, student_id } = body;
+    const { course_id, code, student_id } = body;
+    const identifier = course_id || code;
 
-    if (!code || !student_id) {
+    if (!identifier || !student_id) {
       return NextResponse.json(
-        { success: false, error: 'Enrollment code and student ID are required.' },
+        { success: false, error: 'Course selection and student ID are required.' },
         { status: 400 }
       );
     }
 
-    const result = db.enrollStudent(code, student_id);
+    const result = db.enrollStudent(identifier, student_id);
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.message }, { status: 400 });
     }

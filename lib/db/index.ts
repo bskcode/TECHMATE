@@ -89,19 +89,23 @@ export const db = {
     return course;
   },
 
-  enrollStudent(courseCode: string, studentId: string): { success: boolean; message: string; course?: Course } {
+  enrollStudent(identifier: string, studentId: string): { success: boolean; message: string; course?: Course } {
+    const trimmed = (identifier || '').trim().toUpperCase();
     const course = mockDb.courses.find(
-      (c) => c.enrollment_code.toUpperCase() === courseCode.trim().toUpperCase()
+      (c) =>
+        c.id === identifier ||
+        c.code.toUpperCase() === trimmed ||
+        c.enrollment_code.toUpperCase() === trimmed
     );
     if (!course) {
-      return { success: false, message: 'Invalid enrollment code. Please check with your instructor.' };
+      return { success: false, message: 'Course not found. Please choose a valid course from the list.' };
     }
 
     const existing = mockDb.enrollments.find(
       (e) => e.course_id === course.id && e.student_id === studentId
     );
     if (existing) {
-      return { success: true, message: 'Already enrolled in this course.', course };
+      return { success: true, message: `Already enrolled in ${course.code}: ${course.title}.`, course };
     }
 
     mockDb.enrollments.push({
@@ -113,7 +117,7 @@ export const db = {
     });
     mockDb.saveToDisk();
 
-    return { success: true, message: `Successfully enrolled in ${course.code}: ${course.title}`, course };
+    return { success: true, message: `Successfully enrolled in ${course.code}: ${course.title}!`, course };
   },
 
   getEnrollments(courseId: string): Enrollment[] {

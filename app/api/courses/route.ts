@@ -7,7 +7,8 @@ export async function GET(req: NextRequest) {
   const role = (searchParams.get('role') as 'faculty' | 'student') || undefined;
 
   const courses = db.getCourses(userId, role);
-  return NextResponse.json({ success: true, courses });
+  const allCourses = db.getCourses();
+  return NextResponse.json({ success: true, courses, allCourses });
 }
 
 export async function POST(req: NextRequest) {

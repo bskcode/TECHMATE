@@ -21,15 +21,44 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Student or Course not found' }, { status: 404 });
     }
 
-    // Get grounding text from approved course materials
-    const approvedMaterials = db.getMaterials(course_id, true);
-    let groundingText = approvedMaterials
-      .map((m) => `[Document: ${m.filename}]\n${m.extracted_text || ''}`)
+    // Get grounding text strictly from this specific course's materials, modules, and notes
+    const materials = db.getMaterials(course_id, false).filter(
+      (m) => m.extracted_text && m.extracted_text.trim().length > 0
+    );
+    const approvedMaterials = materials.filter((m) => m.approval_status === 'approved');
+    const materialsToUse = approvedMaterials.length > 0 ? approvedMaterials : materials;
+
+    const modules = db.getModules(course_id);
+    const outcomes = db.getCourseOutcomes(course_id);
+
+    const moduleText = modules
+      .map(
+        (m) =>
+          `[Module ${m.order_index}: ${m.title}]\n${m.description || ''}\n${
+            m.learning_objectives?.length
+              ? `Learning Objectives:\n- ${m.learning_objectives.join('\n- ')}`
+              : ''
+          }\n${m.notes_markdown ? `Module Study Notes:\n${m.notes_markdown}` : ''}`
+      )
       .join('\n\n');
 
-    if (!groundingText.trim()) {
-      groundingText = `Course: ${course.code} - ${course.title}. ${course.description || ''}`;
-    }
+    const outcomeText = outcomes.length
+      ? `Course Outcomes:\n` + outcomes.map((co) => `- ${co.code}: ${co.description}`).join('\n')
+      : '';
+
+    const materialText = materialsToUse
+      .map((m) => `[Course Handout: ${m.filename}]\n${m.extracted_text}`)
+      .join('\n\n');
+
+    let groundingText = [
+      `Course: ${course.code} - ${course.title}`,
+      course.description ? `Overview: ${course.description}` : '',
+      outcomeText,
+      moduleText,
+      materialText,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
 
     const attempt = diagnostic_attempt_id ? db.getAttempt(diagnostic_attempt_id) : undefined;
     const score = attempt?.percentage ?? 55;
