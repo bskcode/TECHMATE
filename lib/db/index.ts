@@ -1005,6 +1005,63 @@ export const db = {
     return { is_correct, explanation: question.explanation };
   },
 
+  /**
+   * Computes placement readiness statistics for practice quiz attempts.
+   */
+  calculatePracticePlacementPerformance(studentId: string, courseId?: string): {
+    total_assigned: number;
+    total_attempted: number;
+    total_correct: number;
+    accuracy_percentage: number;
+    placement_readiness_level: 'Placement Ready (Distinction)' | 'Placement Competitive' | 'Developing Foundational' | 'Needs Technical Practice';
+    placement_readiness_summary: string;
+  } {
+    // Collect all practice questions for this student (optionally scoped to course)
+    const studentInterventions = mockDb.interventions.filter((inv) => {
+      if (inv.student_id !== studentId) return false;
+      if (courseId && inv.course_id !== courseId) return false;
+      return true;
+    });
+    const invIds = new Set(studentInterventions.map((inv) => inv.id));
+    const assignedQuestions = mockDb.practice_questions.filter((pq) => invIds.has(pq.intervention_id));
+    const total_assigned = assignedQuestions.length;
+
+    const assignedQIds = new Set(assignedQuestions.map((pq) => pq.id));
+    const attempts = mockDb.practice_attempts.filter((pa) => pa.student_id === studentId && assignedQIds.has(pa.practice_question_id));
+    const total_attempted = attempts.length;
+    const total_correct = attempts.filter((pa) => pa.is_correct).length;
+
+    const accuracy_percentage = total_attempted > 0
+      ? Math.round((total_correct / total_attempted) * 1000) / 10
+      : 0;
+
+    let placement_readiness_level: 'Placement Ready (Distinction)' | 'Placement Competitive' | 'Developing Foundational' | 'Needs Technical Practice';
+    let placement_readiness_summary: string;
+
+    if (total_attempted >= 4 && accuracy_percentage >= 80) {
+      placement_readiness_level = 'Placement Ready (Distinction)';
+      placement_readiness_summary = `High aptitude in placement-level technical problem solving (${total_correct}/${total_attempted} correct, ${accuracy_percentage}%). Demonstrates robust command of algorithmic invariants and edge cases.`;
+    } else if (total_attempted >= 3 && accuracy_percentage >= 60) {
+      placement_readiness_level = 'Placement Competitive';
+      placement_readiness_summary = `Competitive placement proficiency (${total_correct}/${total_attempted} correct, ${accuracy_percentage}%). Solid conceptual foundation with room for speed optimization in complex analysis.`;
+    } else if (total_attempted > 0) {
+      placement_readiness_level = 'Developing Foundational';
+      placement_readiness_summary = `Developing foundational skills (${total_correct}/${total_attempted} correct, ${accuracy_percentage}%). Needs additional practice on placement coding invariants and space-time trade-offs.`;
+    } else {
+      placement_readiness_level = 'Needs Technical Practice';
+      placement_readiness_summary = `No placement practice questions completed yet (${total_assigned} assigned). Complete targeted practice quizzes to demonstrate placement readiness.`;
+    }
+
+    return {
+      total_assigned,
+      total_attempted,
+      total_correct,
+      accuracy_percentage,
+      placement_readiness_level,
+      placement_readiness_summary,
+    };
+  },
+
   // ------------------------------------------------------------------
   // PROGRESS REPORTS (BASELINE VS PROGRESSIVE VS FINAL COMPARISONS)
   // ------------------------------------------------------------------
@@ -1121,6 +1178,8 @@ export const db = {
       }
     }
 
+    const practice_performance = this.calculatePracticePlacementPerformance(studentId, courseId);
+
     return {
       ...report,
       student,
@@ -1133,6 +1192,7 @@ export const db = {
       learning_gain_g: report.learning_gain_g ?? g,
       learning_gain_interpretation,
       motivational_message,
+      practice_quiz_performance: report.practice_quiz_performance ?? practice_performance,
       trait_details,
     };
   },
@@ -1229,6 +1289,8 @@ export const db = {
       }
     }
 
+    const practice_performance = this.calculatePracticePlacementPerformance(studentId, courseId);
+
     const report: ProgressReport = {
       id: crypto.randomUUID(),
       student_id: studentId,
@@ -1244,6 +1306,7 @@ export const db = {
       learning_gain_g: g,
       learning_gain_interpretation,
       motivational_message,
+      practice_quiz_performance: practice_performance,
       trait_improvements: trait_improvements as any,
       progressive_trait_improvements: progId ? (progressive_trait_improvements as any) : undefined,
       evidence_counts: evidence_counts as any,

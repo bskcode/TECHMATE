@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Printer, BookOpen } from 'lucide-react';
+import { TrendingUp, Printer, BookOpen, Award, Briefcase, Target, CheckCircle2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -158,6 +158,81 @@ export default function StudentFinalReportPage() {
               <TrendingUp className="w-14 h-14 text-white/15 absolute -right-2 -bottom-2" />
             </Card>
           </div>
+
+          {/* Placement Preparedness & Practice Quiz Performance Widget */}
+          {report.practice_quiz_performance && (
+            <Card className="rounded-3xl border-none shadow-sm bg-gradient-to-br from-[#3E2D68] to-[#584193] text-white p-6 sm:p-7 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-white/10 gap-3">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-2xl bg-white/10 text-emerald-300 flex items-center justify-center font-bold">
+                    <Briefcase className="w-5 h-5 text-emerald-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">
+                      Practice Quiz Performance &amp; Placement Preparedness
+                    </h3>
+                    <p className="text-xs text-purple-200">
+                      Evaluates your readiness for technical campus placements and corporate interview questions.
+                    </p>
+                  </div>
+                </div>
+
+                <Badge
+                  variant="secondary"
+                  className="bg-emerald-400/20 text-emerald-200 border border-emerald-300/30 font-bold px-3 py-1 text-xs"
+                >
+                  {report.practice_quiz_performance.placement_readiness_level}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1">
+                <div className="bg-white/10 rounded-2xl p-4 border border-white/10 text-center backdrop-blur-sm">
+                  <p className="text-[10px] font-bold text-purple-200 uppercase tracking-wider">Placement Accuracy</p>
+                  <p className="text-2xl font-black text-emerald-300 mt-1">
+                    {report.practice_quiz_performance.accuracy_percentage}%
+                  </p>
+                  <span className="text-[10px] text-purple-100">
+                    {report.practice_quiz_performance.total_correct} of {report.practice_quiz_performance.total_attempted} correct
+                  </span>
+                </div>
+
+                <div className="bg-white/10 rounded-2xl p-4 border border-white/10 text-center backdrop-blur-sm">
+                  <p className="text-[10px] font-bold text-purple-200 uppercase tracking-wider">Placement Questions</p>
+                  <p className="text-2xl font-black text-white mt-1">
+                    {report.practice_quiz_performance.total_assigned}
+                  </p>
+                  <span className="text-[10px] text-purple-100">Technical MCQs assigned</span>
+                </div>
+
+                <div className="bg-white/10 rounded-2xl p-4 border border-white/10 text-center backdrop-blur-sm">
+                  <p className="text-[10px] font-bold text-purple-200 uppercase tracking-wider">Completed by You</p>
+                  <p className="text-2xl font-black text-purple-200 mt-1">
+                    {report.practice_quiz_performance.total_attempted}
+                  </p>
+                  <span className="text-[10px] text-purple-100">
+                    {report.practice_quiz_performance.total_assigned > 0
+                      ? `${Math.round((report.practice_quiz_performance.total_attempted / report.practice_quiz_performance.total_assigned) * 100)}% completion`
+                      : '0% completion'}
+                  </span>
+                </div>
+
+                <div className="bg-emerald-500/20 rounded-2xl p-4 border border-emerald-400/30 text-center backdrop-blur-sm flex flex-col justify-center">
+                  <p className="text-[10px] font-bold text-emerald-200 uppercase tracking-wider">Interview Caliber</p>
+                  <p className="text-sm font-black text-emerald-300 mt-1">
+                    {report.practice_quiz_performance.accuracy_percentage >= 80 ? 'Placement Distinction' : 'Placement Developing'}
+                  </p>
+                  <span className="text-[10px] text-emerald-100">Corporate-ready benchmark</span>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-white/10 border border-white/10 text-xs text-purple-100 flex items-start space-x-2.5">
+                <Target className="w-4 h-4 text-emerald-300 shrink-0 mt-0.5" />
+                <p className="text-[11px] leading-relaxed">
+                  {report.practice_quiz_performance.placement_readiness_summary}
+                </p>
+              </div>
+            </Card>
+          )}
 
           <Card className="rounded-3xl border-none shadow-sm bg-white overflow-hidden p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-gray-50">

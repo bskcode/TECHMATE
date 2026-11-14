@@ -318,6 +318,14 @@ export interface ProgressReport {
   learning_gain_g?: number; // Normalized learning gain G = (progressive_score - baseline_score) / max_score * 100%
   learning_gain_interpretation?: string; // Pedagogic interpretation e.g. "Substantial Mastery Leap (High Gain)"
   motivational_message?: string; // Motivational coaching message for student
+  practice_quiz_performance?: {
+    total_assigned: number;
+    total_attempted: number;
+    total_correct: number;
+    accuracy_percentage: number;
+    placement_readiness_level: 'Placement Ready (Distinction)' | 'Placement Competitive' | 'Developing Foundational' | 'Needs Technical Practice';
+    placement_readiness_summary: string;
+  };
   trait_improvements: Record<BloomTrait, number>; // in percentage points
   progressive_trait_improvements?: Record<BloomTrait, number>; // in percentage points
   evidence_counts: Record<BloomTrait, number>;

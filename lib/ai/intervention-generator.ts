@@ -21,10 +21,13 @@ export interface GenerateInterventionParams {
 const SYSTEM_PROMPT = `You are a distinguished university tutor and learning specialist for AdaptiveLearn AI.
 Your objective is to generate an empowering, highly personalized learning package for a student who demonstrated weaknesses in specific Bloom cognitive traits on their diagnostic assessment.
 
-STRICT COURSE-SPECIFIC ISOLATION:
+STRICT COURSE-SPECIFIC ISOLATION & PLACEMENT READINESS:
 1. EXCLUSIVE SPECIFIC COURSE SCOPE: All explanations, learning gap analyses, worked examples, analogies, revision checklists, and practice questions MUST be 100% grounded in and specific to the course named in the prompt and its provided lecture material.
 2. ZERO CROSS-COURSE CONTAMINATION: Under NO circumstances should you introduce facts, theories, definitions, questions, or examples from unrelated courses (e.g. if the course is Data Structures, do NOT generate AI heuristic questions; if the course is Database Systems, do NOT generate compiler theory questions).
-3. PEDAGOGICAL GROUNDING: Use clear markdown headings, KaTeX math notation where relevant, realistic step-by-step worked examples, and objective practice questions with plausible distractors.
+3. PLACEMENT-GRADE PRACTICE QUESTIONS (MINIMUM 5 QUESTIONS):
+   - You MUST generate AT LEAST 5 high-yield, placement-caliber technical practice questions (MCQs with 4 options, exact correct answer, explanation, and Bloom trait mapping).
+   - Questions should reflect the caliber and style of technical placement and technical interview assessments (e.g. algorithmic time/space complexity analysis, pointer manipulation invariants, state evaluation, edge-case debugging, code tracing, and core systems invariants).
+4. PEDAGOGICAL GROUNDING: Use clear markdown headings, KaTeX math notation where relevant, realistic step-by-step worked examples, and objective practice questions with plausible distractors.
 
 PACKAGE REQUIREMENTS:
 1. Title: Engaging, targeted remediation module title specific to the course.
@@ -34,7 +37,7 @@ PACKAGE REQUIREMENTS:
 5. Analogies: Real-world mental models to make this course's abstract ideas intuitive.
 6. Revision Checklist: 3 to 5 actionable self-assessment questions for this course.
 7. Recommended Next Steps: 2 to 3 sequential study actions.
-8. Practice Questions: 2 to 4 objective practice questions with options, correct answer, and pedagogical explanations grounded in this course.
+8. Practice Questions: AT LEAST 5 objective placement-grade technical practice questions with 4 distinct options, correct answer, pedagogical explanation, and trait grounded in this course.
 
 Respond ONLY with valid JSON conforming to the requested schema.`;
 
@@ -54,7 +57,10 @@ Approved Specific Course Material (derive all remediation EXCLUSIVELY from this 
 ${groundingText.slice(0, 15000)}
 """
 
-STRICT REQUIREMENT: All content, worked examples, analogies, and practice questions must be strictly and exclusively derived from "${courseTitle}". Do NOT use concepts or questions from any other course.
+STRICT PLACEMENT & GROUNDING REQUIREMENTS:
+1. All content, worked examples, analogies, and practice questions must be strictly and exclusively derived from "${courseTitle}". Do NOT use concepts or questions from any other course.
+2. PRACTICE QUESTIONS: You MUST generate AT LEAST 5 placement-grade technical practice questions. These questions should test technical algorithmic complexity, invariants, and edge cases commonly assessed in corporate and technical campus placements.
+3. Every practice question must include 4 options, a single correct_answer, a thorough explanation, and a Bloom trait.
 
 Generate the personalized intervention package as a single JSON object.`;
 
@@ -230,15 +236,51 @@ In ${courseTitle}, data structure selection dictates both runtime and spatial me
           question_text: `What is the worst-case time complexity of searching for an element in an unbalanced Binary Search Tree containing N elements?`,
           options: ['O(1)', 'O(log N)', 'O(N)', 'O(N^2)'],
           correct_answer: 'O(N)',
-          explanation: 'When a BST is completely unbalanced (e.g., elements inserted in ascending order), it degenerates into a linear linked list where search takes O(N).',
+          explanation: 'When a BST is completely unbalanced (e.g., elements inserted in ascending sorted order), it degenerates into a linear singly-linked chain where search degrades to O(N).',
           trait: 'analysis',
         },
         {
           question_text: `Which data structure provides O(1) time complexity for inserting an element at the beginning, without requiring elements to be shifted in memory?`,
           options: ['Contiguous Static Array', 'Dynamic Array (Vector)', 'Singly Linked List', 'Binary Heap'],
           correct_answer: 'Singly Linked List',
-          explanation: 'A Singly Linked List inserts a node at the head in O(1) by updating the new node’s next pointer to current head and resetting the head pointer.',
+          explanation: 'A Singly Linked List inserts a node at the head in O(1) by updating the new node’s next pointer to the current head and resetting the head pointer, requiring zero memory reallocation or shifting.',
           trait: 'application',
+        },
+        {
+          question_text: `In a standard technical interview, you are asked: What is the average-case and worst-case time complexity of accessing an element by index in a Hash Table with good distribution vs under complete hash collisions?`,
+          options: [
+            'Average O(1), Worst O(N)',
+            'Average O(log N), Worst O(N)',
+            'Average O(1), Worst O(log N)',
+            'Average O(N), Worst O(N^2)',
+          ],
+          correct_answer: 'Average O(1), Worst O(N)',
+          explanation: 'Under uniform hashing distribution, hash table key lookup is O(1) on average. When all keys collide into the same bucket chain, lookup degenerates to linear traversal O(N).',
+          trait: 'remembering',
+        },
+        {
+          question_text: `Consider reversing a Singly Linked List of N elements in-place with O(1) auxiliary space. How many pointer manipulations are required per node traversal?`,
+          options: [
+            '1 pointer reassignment',
+            '3 pointer reassignments (prev, current, next)',
+            'N pointer reassignments',
+            'O(log N) pointer swaps',
+          ],
+          correct_answer: '3 pointer reassignments (prev, current, next)',
+          explanation: 'Standard in-place linked list reversal iteratively caches next = curr.next, points curr.next = prev, and advances prev = curr, curr = next (3 reassignments per node).',
+          trait: 'understanding',
+        },
+        {
+          question_text: `A technical placement interviewer asks: Which algorithmic paradigm does MergeSort use, and what is its space complexity compared to QuickSort?`,
+          options: [
+            'Divide and Conquer; MergeSort uses O(N) auxiliary space, whereas standard QuickSort operates with O(log N) stack space.',
+            'Greedy Approach; MergeSort uses O(1) space, whereas QuickSort requires O(N) space.',
+            'Dynamic Programming; Both require O(N^2) auxiliary memory for memoization.',
+            'Branch and Bound; Both achieve strictly O(1) total memory overhead.',
+          ],
+          correct_answer: 'Divide and Conquer; MergeSort uses O(N) auxiliary space, whereas standard QuickSort operates with O(log N) stack space.',
+          explanation: 'MergeSort follows Divide and Conquer and requires O(N) extra array buffer to merge subarrays, whereas in-place QuickSort requires O(log N) auxiliary stack memory for recursive partitioning.',
+          trait: 'evaluation',
         },
       ],
     };
@@ -291,7 +333,7 @@ In **${cleanCourse}**, mastering this domain requires understanding the direct r
     ],
     recommended_next_steps: [
       `Review your course notes and syllabus milestones for ${cleanCourse}.`,
-      'Work through the 2 practice questions below without reference to notes.',
+      'Work through the 5 placement-grade practice questions below without reference to notes.',
       'Check your explanations against the lecture materials before taking the next assessment.',
     ],
     practice_questions: [
@@ -308,7 +350,7 @@ In **${cleanCourse}**, mastering this domain requires understanding the direct r
         trait: 'understanding',
       },
       {
-        question_text: `When evaluating system requirements and performance constraints, under which condition is ${secondaryTopic} most appropriately applied?`,
+        question_text: `When evaluating system requirements and performance constraints in a technical placement round, under which condition is ${secondaryTopic} most appropriately applied?`,
         options: [
           `When operational bounds require structured verification of system state.`,
           `When the system must execute without memory or storage allocation.`,
@@ -318,6 +360,42 @@ In **${cleanCourse}**, mastering this domain requires understanding the direct r
         correct_answer: `When operational bounds require structured verification of system state.`,
         explanation: `${secondaryTopic} provides structured verification of system invariants under defined operational bounds.`,
         trait: 'analysis',
+      },
+      {
+        question_text: `In a technical placement interview problem involving ${primaryTopic}, what is the time complexity trade-off if the input size N doubles while maintaining invariant correctness?`,
+        options: [
+          `The runtime scales predictably according to its governing algorithmic recurrence relation.`,
+          `The complexity immediately degrades to exponential runtime O(2^N).`,
+          `The space requirement becomes unbounded and ignores physical memory boundaries.`,
+          `The system violates correctness guarantees and requires random resets.`,
+        ],
+        correct_answer: `The runtime scales predictably according to its governing algorithmic recurrence relation.`,
+        explanation: `Algorithmic scaling under doubling input size N evaluates runtime growth via asymptotic recurrence bounds established in technical lecture notes.`,
+        trait: 'application',
+      },
+      {
+        question_text: `Placement Engineering Question: When evaluating space-time trade-offs between iterative and recursive formulations in ${primaryTopic}, what determines the auxiliary stack space?`,
+        options: [
+          `The maximum depth of the active call stack frames during execution.`,
+          `The total count of all CPU instruction clock cycles.`,
+          `The physical network socket buffer size.`,
+          `The number of compiler optimization passes.`,
+        ],
+        correct_answer: `The maximum depth of the active call stack frames during execution.`,
+        explanation: `Recursive formulations consume stack space proportional to the maximum call depth reached in the recursion tree.`,
+        trait: 'remembering',
+      },
+      {
+        question_text: `In corporate software engineering placements, which edge-case scenario must be handled to ensure robust operation in ${secondaryTopic}?`,
+        options: [
+          `Boundary conditions including null pointers, empty inputs (N=0), and singleton collections (N=1).`,
+          `Only inputs that have even numbers of characters.`,
+          `Deprecating all error logging and bypassing boundary validation.`,
+          `Assuming all inputs are guaranteed to fit within CPU register width.`,
+        ],
+        correct_answer: `Boundary conditions including null pointers, empty inputs (N=0), and singleton collections (N=1).`,
+        explanation: `Placement code assessments rigorously test boundary conditions such as empty collections, singletons, and null references to ensure production reliability.`,
+        trait: 'evaluation',
       },
     ],
   };

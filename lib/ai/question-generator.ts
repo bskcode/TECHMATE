@@ -38,13 +38,15 @@ export function cleanSubjectTitle(title: string): string {
 }
 
 /**
- * Strips administrative metadata lines (subject code, course code, instructor, term, credits, regulations)
+ * Strips administrative metadata lines (subject code, course code, instructor, term, credits, regulations),
+ * syllabus outlines (course outcomes, learning objectives, program outcomes),
  * AND textbook / reference bibliography sections (textbooks, authors, publishers, editions, ISBNs)
  * so that questions are purely technical and grounded strictly in technical lecture notes.
  */
 export function sanitizeTechnicalGroundingText(text: string): string {
   const lines = text.split('\n');
   let inReferenceSection = false;
+  let inOutcomesOrObjectivesSection = false;
 
   const filtered = lines.filter((line) => {
     const trimmed = line.trim();
@@ -60,9 +62,32 @@ export function sanitizeTechnicalGroundingText(text: string): string {
       return false;
     }
 
+    // Detect beginning of Course Outcomes (COs) or Learning Objectives sections
+    if (
+      /^(course\s+outcomes?|program\s+outcomes?|program\s+specific\s+outcomes?|pos?|psos?|learning\s+objectives?|course\s+objectives?|instructional\s+objectives?|expected\s+outcomes?)\b/i.test(
+        trimmed
+      )
+    ) {
+      inOutcomesOrObjectivesSection = true;
+      return false;
+    }
+
+    // If we are inside an outcomes/objectives section, check if a technical section has begun
+    if (inOutcomesOrObjectivesSection) {
+      if (
+        /^(module\s+\d+|unit\s+\d+|chapter\s+\d+|lecture\s+\d+|section\s+\d+|part\s+\d+|topic\s*[:\-–]|course\s+content|syllabus\s+content)/i.test(
+          trimmed
+        )
+      ) {
+        inOutcomesOrObjectivesSection = false;
+      } else {
+        return false;
+      }
+    }
+
     // If we are inside a reference/textbook section, check if a new technical section has begun
     if (inReferenceSection) {
-      // New technical section header: Module, Unit, Chapter, Topic, Lecture, Section, Part, Learning Objectives, etc.
+      // New technical section header: Module, Unit, Chapter, Topic, Lecture, Section, Part, etc.
       if (
         /^(module\s+\d+|unit\s+\d+|chapter\s+\d+|lecture\s+\d+|section\s+\d+|part\s+\d+|topic\s*[:\-–]|course\s+content|syllabus\s+content)/i.test(
           trimmed
@@ -87,9 +112,18 @@ export function sanitizeTechnicalGroundingText(text: string): string {
       return false;
     }
 
+    // Filter standalone Course Outcome (CO1, CO2..) or Learning Objective lines
+    if (
+      /^(co\s*[1-9]|po\s*[1-9]|pso\s*[1-9]|lo\s*[1-9])\s*[:\-–.]/i.test(trimmed) ||
+      /^(learning\s+objective\s*\d*|course\s+objective\s*\d*)\s*[:\-–.]/i.test(trimmed) ||
+      /^students?\s+(will\s+be\s+able\s+to|should\s+be\s+able\s+to|learns?\s+to)\s*[:\-–]/i.test(trimmed)
+    ) {
+      return false;
+    }
+
     // Filter administrative metadata labels with colon/hyphen:
     if (
-      /^(course\s+(code|title|name|id|number|credits?)|subject\s+(code|name|title)|sub\.?\s*code|paper\s*code|code|catalog\s*(no|number|num)|course\s*(no|number|num)|instructor|professor|faculty|lecturer|teacher|ta|teaching\s+assistant|term|semester|academic\s+year|year\s*\/\s*semester|batch|regulation|credits?|credit\s+hours?|l\s*[-]?\s*t\s*[-]?\s*p\s*[-]?\s*c|hours(\s*\/\s*week)?|prerequisites?|pre-requisite|corequisites?|office\s+hours?|email|contact|phone|website|classroom|class\s+room|venue|department|dept|school|university|college|institution|branch|degree|programme|program|grading\s+policy|evaluation\s+(scheme|criteria)|marks\s+distribution|internal\s+marks|external\s+marks|total\s+marks|passing\s+(minimum|marks)|exam\s+duration|duration|attendance|exam\s+date|midterm\s+date|final\s+exam|text\s*books?|prescribed\s+books?|reference\s*books?|references?|suggested\s+readings?|course\s+outcomes?|program\s+outcomes?|pos?|cos?)\s*[:\-–]/i.test(
+      /^(course\s+(code|title|name|id|number|credits?)|subject\s+(code|name|title)|sub\.?\s*code|paper\s*code|code|catalog\s*(no|number|num)|course\s*(no|number|num)|instructor|professor|faculty|lecturer|teacher|ta|teaching\s+assistant|term|semester|academic\s+year|year\s*\/\s*semester|batch|regulation|credits?|credit\s+hours?|l\s*[-]?\s*t\s*[-]?\s*p\s*[-]?\s*c|hours(\s*\/\s*week)?|prerequisites?|pre-requisite|corequisites?|office\s+hours?|email|contact|phone|website|classroom|class\s+room|venue|department|dept|school|university|college|institution|branch|degree|programme|program|grading\s+policy|evaluation\s+(scheme|criteria)|marks\s+distribution|internal\s+marks|external\s+marks|total\s+marks|passing\s+(minimum|marks)|exam\s+duration|duration|attendance|exam\s+date|midterm\s+date|final\s+exam|text\s*books?|prescribed\s+books?|reference\s*books?|references?|suggested\s+readings?|course\s+outcomes?|program\s+outcomes?|pos?|cos?|learning\s+objectives?|course\s+objectives?)\s*[:\-–]/i.test(
         trimmed
       )
     ) {
@@ -113,6 +147,7 @@ export function sanitizeTechnicalGroundingText(text: string): string {
 
 /**
  * Checks if a question is asking about administrative metadata, subject codes,
+ * syllabus structures (course outcomes, learning objectives),
  * or bibliographic / textbook / publisher / author metadata rather than technical subject matter.
  */
 export function isAdministrativeQuestion(text: string, correctAnswer?: string): boolean {
@@ -142,7 +177,18 @@ export function isAdministrativeQuestion(text: string, correctAnswer?: string): 
     return true;
   }
 
-  // 2. Check for textbook, author of book, publisher, edition, publication year, ISBN inquiries
+  // 2. Check for Course Outcomes (COs) and Learning Objectives inquiries
+  if (
+    /\b(course\s+outcome|learning\s+objective|course\s+objective|program\s+outcome)\b/i.test(lower) ||
+    /\b(what\s+is\s+co\d+|which\s+co\d+|state\s+co\d+|define\s+co\d+)\b/i.test(lower) ||
+    /\b(co\s*[1-9]|po\s*[1-9]|pso\s*[1-9]|lo\s*[1-9])\s*states?\b/i.test(lower) ||
+    /\b(objective\s+of\s+this\s+course|objective\s+of\s+the\s+course|learning\s+goals?)\b/i.test(lower) ||
+    /students\s+will\s+be\s+able\s+to/i.test(lower)
+  ) {
+    return true;
+  }
+
+  // 3. Check for textbook, author of book, publisher, edition, publication year, ISBN inquiries
   if (
     /\b(publisher|publishers|publishing\s+house|published\s+by|who\s+published|which\s+publisher|which\s+publication)\b/i.test(lower) ||
     /\b(text\s*books?|reference\s*books?|prescribed\s*books?|prescribed\s+textbook|recommended\s+book)\b/i.test(lower) ||
@@ -155,12 +201,13 @@ export function isAdministrativeQuestion(text: string, correctAnswer?: string): 
     return true;
   }
 
-  // 3. If correct answer is a publisher, book edition, author, subject code, or administrative value
+  // 4. If correct answer is a publisher, book edition, author, subject code, or administrative value
   if (correctAnswer) {
     const trimmedAns = correctAnswer.trim();
     if (/^[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?$/i.test(trimmedAns)) return true;
     if (/^(fall|spring|summer)\s+\d{4}$/i.test(trimmedAns)) return true;
     if (/^\d+\s*credits?$/i.test(trimmedAns)) return true;
+    if (/^CO\s*[1-9]$/i.test(trimmedAns)) return true;
     if (
       /\b(pearson|mcgraw[\s-]*hill|wiley|springer|mit\s+press|prentice[\s-]*hall|cengage|addison[\s-]*wesley|o'reilly|oxford|cambridge|elsevier|morgan\s+kaufmann|narosa|packt)\b/i.test(
         trimmedAns
@@ -228,24 +275,28 @@ Your absolute duty is to generate assessment question packages grounded STRICTLY
 STRICT TECHNICAL SUBJECT-MATTER DIRECTIVES:
 1. RIGOROUS TECHNICAL SUBJECT CONTENT ONLY: Every question must test academic, technical, subject-matter concepts (algorithms, mathematical logic, code execution, data structure invariants, operational mechanisms, formulas, computational complexity, architectural trade-offs, or formal definitions).
 2. ABSOLUTE PROHIBITION ON ADMINISTRATIVE / SYLLABUS / SUBJECT CODE QUESTIONS:
-   - NEVER ask questions about the course code, subject code, course title, course number, course name, instructor name, semester, term, academic year, credit hours, office hours, syllabus organization, or course outcome codes (e.g. NEVER ask "What is the course code?", "What is the subject code?", "What is the course title?", "Who is the instructor?", "Which course outcome addresses X?").
+   - NEVER ask questions about the course code, subject code, course title, course number, course name, instructor name, semester, term, academic year, credit hours, office hours, syllabus organization, or course outcome codes (e.g. NEVER ask "What is the course code?", "What is the subject code?", "What is the course title?", "Who is the instructor?").
    - NEVER include course codes or subject codes (such as CS101, DS301, CS8391, etc.) anywhere in question texts, options, explanations, or answers. Do NOT start questions with "In CS101," or "Under subject code...".
    - If the grounding text contains headers like course codes, subject codes, or instructors, IGNORE them completely. Only test the actual technical domain concepts.
-3. ABSOLUTE PROHIBITION ON TEXTBOOK / PUBLISHER / BIBLIOGRAPHIC / AUTHOR QUESTIONS:
+3. ABSOLUTE PROHIBITION ON COURSE OUTCOMES (COs) & LEARNING OBJECTIVES QUESTIONS:
+   - NEVER ask questions about Course Outcomes (e.g. "What is CO1?", "Which course outcome addresses X?", "What does CO2 state?").
+   - NEVER ask questions about syllabus learning objectives or pedagogical goals (e.g. "What is the objective of this module?", "What will students be able to do according to the learning objectives?").
+   - Course outcomes and learning objectives are curriculum meta-labels, NOT technical exam questions.
+4. ABSOLUTE PROHIBITION ON TEXTBOOK / PUBLISHER / BIBLIOGRAPHIC / AUTHOR QUESTIONS:
    - NEVER ask questions about the publisher of the textbook/book, publishing houses (e.g., Pearson, McGraw-Hill, Wiley, Springer, MIT Press, Prentice Hall, Oxford, Cambridge, etc.), authors of books, textbook titles, textbook editions (e.g. "3rd edition"), publication years, ISBN numbers, or recommended reference books.
    - Questions asking "Who is the author of...", "Which publisher published...", "What edition is recommended...", or "Which book is prescribed..." are STRICTLY FORBIDDEN and completely invalid.
    - Only test the core engineering, scientific, and technical principles taught in the lecture notes.
-4. EXCLUSIVE SOURCE MATERIAL: Every question, option, correct answer, hint, and explanation MUST be directly derived from technical content in the provided course material text.
-5. ZERO EXTERNAL INVENTIONS: Under NO circumstances introduce outside facts not grounded in the material.
-6. OBJECTIVE EVALUATION: ONLY generate deterministic questions: 'mcq', 'multiple_select', 'true_false', 'numeric', or 'fill_in_blank'.
-7. BLOOM TAXONOMY MAPPING: Map each question to its primary cognitive dimension:
+5. EXCLUSIVE SOURCE MATERIAL: Every question, option, correct answer, hint, and explanation MUST be directly derived from technical content in the provided course material text.
+6. ZERO EXTERNAL INVENTIONS: Under NO circumstances introduce outside facts not grounded in the material.
+7. OBJECTIVE EVALUATION: ONLY generate deterministic questions: 'mcq', 'multiple_select', 'true_false', 'numeric', or 'fill_in_blank'.
+8. BLOOM TAXONOMY MAPPING: Map each question to its primary cognitive dimension:
    - remembering: factual technical definition or property recall
    - understanding: conceptual comprehension of mechanisms or operational rules
    - application: problem solving, calculation, or code analysis
    - analysis: comparing structures, complexity bounds, or algorithmic trade-offs
    - creativity: formulating hypotheses, heuristic approaches, or synthesis
    - evaluation: appraising trade-offs, optimality, or design decisions
-8. MANDATORY FIELDS PER QUESTION:
+9. MANDATORY FIELDS PER QUESTION:
    - question_text (unambiguous, professional university-grade technical question without subject code prefixes)
    - question_type ('mcq' | 'multiple_select' | 'true_false' | 'numeric' | 'fill_in_blank')
    - options (array of 4 distinct plausible choices for mcq / multiple_select; ['True', 'False'] for true_false)
@@ -296,10 +347,11 @@ ${sanitizedText.slice(0, 35000)}
 
 CRITICAL GROUNDING & TECHNICAL DIRECTIVES:
 1. Every question MUST be a STANDARD, TECHNICAL SUBJECT-MATTER question testing algorithms, data structures, logic, formulas, or operational mechanisms.
-2. ABSOLUTELY NO ADMINISTRATIVE QUESTIONS: Do NOT ask for course code, subject code, course title, instructor, term, credits, or CO numbers.
-3. ABSOLUTELY NO TEXTBOOK / PUBLISHER / AUTHOR / EDITION QUESTIONS: Do NOT ask for the publisher of a book (e.g. Pearson, McGraw-Hill, etc.), author of a book, edition, ISBN, or textbook title. Questions must strictly test technical lecture concepts, algorithms, data structures, or code mechanics.
-4. NEVER mention the course code or subject code (e.g. CS101, DS301, etc.) anywhere in question_text, options, correct_answer, explanation, or hints. Questions must be strictly technical academic questions.
-5. All options, correct answers, explanations, and hints must be formulated EXCLUSIVELY and DIRECTLY from the technical lecture text above.
+2. ABSOLUTELY NO ADMINISTRATIVE QUESTIONS: Do NOT ask for course code, subject code, course title, instructor, term, credits, or syllabus organization.
+3. ABSOLUTELY NO COURSE OUTCOMES (COs) OR LEARNING OBJECTIVES QUESTIONS: Do NOT ask questions about COs (e.g. "What does CO1 state?"), program outcomes, or syllabus learning objectives. Questions must test technical subject matter, NEVER syllabus metadata.
+4. ABSOLUTELY NO TEXTBOOK / PUBLISHER / AUTHOR / EDITION QUESTIONS: Do NOT ask for the publisher of a book (e.g. Pearson, McGraw-Hill, etc.), author of a book, edition, ISBN, or textbook title. Questions must strictly test technical lecture concepts, algorithms, data structures, or code mechanics.
+5. NEVER mention the course code or subject code (e.g. CS101, DS301, etc.) anywhere in question_text, options, correct_answer, explanation, or hints. Questions must be strictly technical academic questions.
+6. All options, correct answers, explanations, and hints must be formulated EXCLUSIVELY and DIRECTLY from the technical lecture text above.
 5. Output ONLY valid JSON with this exact structure:
 {
   "assessment_title": "${cleanTitle} - ${moduleTitle || 'Assessment'}",
@@ -396,10 +448,10 @@ interface ExtractedFact {
 }
 
 const ADMINISTRATIVE_SUBJECT_REGEX =
-  /^(course|course\s+code|course\s+title|course\s+name|course\s+id|course\s+number|subject|subject\s+code|subject\s+name|sub\s+code|sub\.?\s*code|paper\s+code|code|catalog\s+number|instructor|professor|faculty|lecturer|teacher|term|semester|academic\s*year|batch|regulation|degree|programme|program|branch|credits?|credit\s+hours?|l\s*t\s*p\s*c|hours|duration|prerequisites?|office\s*hours?|email|contact|department|dept|school|university|college|syllabus|grading|grade|evaluation\s+criteria|internal\s+marks|external\s+marks|total\s+marks|passing\s+marks|course\s+outcome|co\d+|outcome\d*|module\s+\d+|unit\s+\d+|chapter\s+\d+|lecture\s+\d+|textbook|textbooks|text\s*books|reference\s*books?|references?|suggested\s+readings?|publisher|publishers|publishing|edition|editions|author|authors|isbn|pearson|mcgraw|wiley|springer|mit\s+press|prentice\s+hall|[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?)$/i;
+  /^(course|course\s+code|course\s+title|course\s+name|course\s+id|course\s+number|subject|subject\s+code|subject\s+name|sub\s+code|sub\.?\s*code|paper\s+code|code|catalog\s+number|instructor|professor|faculty|lecturer|teacher|term|semester|academic\s*year|batch|regulation|degree|programme|program|branch|credits?|credit\s+hours?|l\s*t\s*p\s*c|hours|duration|prerequisites?|office\s*hours?|email|contact|department|dept|school|university|college|syllabus|grading|grade|evaluation\s+criteria|internal\s+marks|external\s+marks|total\s+marks|passing\s+marks|course\s+outcome|course\s+outcomes|co\d+|outcome\d*|learning\s+objective|learning\s+objectives|course\s+objective|course\s+objectives|module\s+\d+|unit\s+\d+|chapter\s+\d+|lecture\s+\d+|textbook|textbooks|text\s*books|reference\s*books?|references?|suggested\s+readings?|publisher|publishers|publishing|edition|editions|author|authors|isbn|pearson|mcgraw|wiley|springer|mit\s+press|prentice\s+hall|[A-Z]{2,6}\s*[-_]?\s*\d{2,5}[A-Z]?)$/i;
 
 const BIBLIOGRAPHIC_LINE_REGEX =
-  /\b(pearson|mcgraw|wiley|springer|mit\s+press|prentice[\s-]*hall|cengage|addison[\s-]*wesley|o'reilly|oxford|cambridge|elsevier|morgan\s+kaufmann|narosa|packt|isbn|\d+(st|nd|rd|th)\s+edition|published\s+by|publishing\s+house)\b/i;
+  /\b(pearson|mcgraw|wiley|springer|mit\s+press|prentice[\s-]*hall|cengage|addison[\s-]*wesley|o'reilly|oxford|cambridge|elsevier|morgan\s+kaufmann|narosa|packt|isbn|\d+(st|nd|rd|th)\s+edition|published\s+by|publishing\s+house|learning\s+objectives?|course\s+outcomes?|students?\s+will\s+be\s+able\s+to)\b/i;
 
 /**
  * Parses factual definitions, equations, and technical statements directly from the uploaded text,

@@ -758,16 +758,122 @@ Where $h^*(n)$ is the true shortest cost from node $n$ to the goal.
       grounding_material_ids: ['44444444-4444-4444-4444-444444444441'],
     });
 
-    this.practice_questions.push({
-      id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1',
-      intervention_id: '88888888-8888-8888-8888-888888888881',
-      order_index: 1,
-      question_text: 'If a road network has a straight-line distance of 15 km between City A and City B, which heuristic estimate h(A) would be INADMISSIBLE?',
-      options: ['10 km', '14.5 km', '15 km', '18 km'],
-      correct_answer: '18 km',
-      explanation: 'An admissible heuristic must never overestimate true cost. Since straight-line distance is 15 km, an estimate of 18 km overestimates the straight-line minimum, making it inadmissible.',
-      trait: 'creativity',
-    });
+    this.practice_questions.push(
+      {
+        id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1',
+        intervention_id: '88888888-8888-8888-8888-888888888881',
+        order_index: 1,
+        question_text: 'If a road network has a straight-line distance of 15 km between City A and City B, which heuristic estimate h(A) would be INADMISSIBLE in technical graph search?',
+        options: ['10 km', '14.5 km', '15 km', '18 km'],
+        correct_answer: '18 km',
+        explanation: 'An admissible heuristic must never overestimate true cost. Since straight-line distance is 15 km, an estimate of 18 km overestimates the straight-line minimum, making it inadmissible.',
+        trait: 'creativity',
+      },
+      {
+        id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2',
+        intervention_id: '88888888-8888-8888-8888-888888888881',
+        order_index: 2,
+        question_text: 'Placement Technical Screening: In graph exploration with branching factor b=10 and goal depth d=5, what is the maximum spatial memory overhead of Breadth-First Search (BFS)?',
+        options: ['O(b*d) = 50 nodes', 'O(b^d) = 100,000 nodes', 'O(1) constant nodes', 'O(log d) nodes'],
+        correct_answer: 'O(b^d) = 100,000 nodes',
+        explanation: 'BFS must simultaneously retain all active frontier nodes in its FIFO queue, resulting in exponential spatial complexity O(b^d).',
+        trait: 'analysis',
+      },
+      {
+        id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3',
+        intervention_id: '88888888-8888-8888-8888-888888888881',
+        order_index: 3,
+        question_text: 'Corporate Coding Assessment: Which data structure invariant ensures that searching in a Binary Search Tree (BST) achieves O(log N) average-case time complexity?',
+        options: [
+          'Left subtree keys < root key, and right subtree keys > root key',
+          'Root key is always the minimum of all keys in the tree',
+          'Nodes have exactly two children at all levels',
+          'Elements are stored in contiguous array indexes',
+        ],
+        correct_answer: 'Left subtree keys < root key, and right subtree keys > root key',
+        explanation: 'The BST invariant guarantees that each branch decision cuts the search space in half, achieving logarithmic search time when balanced.',
+        trait: 'understanding',
+      },
+      {
+        id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4',
+        intervention_id: '88888888-8888-8888-8888-888888888881',
+        order_index: 4,
+        question_text: 'Software Engineering Interview: What is the primary difference between Breadth-First Search (BFS) and Depth-First Search (DFS) regarding completeness on infinite graphs without cycle detection?',
+        options: [
+          'BFS is complete on infinite graphs with finite branching; DFS can get trapped in infinite depth branches.',
+          'DFS is complete on all graphs; BFS fails on finite trees.',
+          'Both are complete and optimal under all graph conditions.',
+          'Neither algorithm terminates when given a valid start node.',
+        ],
+        correct_answer: 'BFS is complete on infinite graphs with finite branching; DFS can get trapped in infinite depth branches.',
+        explanation: 'BFS explores step-by-step level by level, ensuring that if a solution exists at finite depth d it will be found. DFS may plunge down an infinite path and never backtrack.',
+        trait: 'evaluation',
+      },
+      {
+        id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa5',
+        intervention_id: '88888888-8888-8888-8888-888888888881',
+        order_index: 5,
+        question_text: 'Placement Coding Round: When implementing an A* search algorithm, setting the heuristic function h(n) = 0 for all nodes reduces the algorithm to which standard search mechanism?',
+        options: [
+          'Dijkstra’s Algorithm (Uniform Cost Search)',
+          'Pure Depth-First Search (DFS)',
+          'Greedy Best-First Search',
+          'Linear Scan Array Search',
+        ],
+        correct_answer: 'Dijkstra’s Algorithm (Uniform Cost Search)',
+        explanation: 'Since A* uses f(n) = g(n) + h(n), when h(n) = 0, f(n) = g(n), evaluating nodes solely by accumulated path cost from start, which is identical to Uniform Cost Search (Dijkstra).',
+        trait: 'application',
+      }
+    );
+
+    // Seed Practice Attempts for Branden Harris on this intervention
+    this.practice_attempts.push(
+      {
+        id: 'cccccccc-cccc-cccc-cccc-ccccccccccc1',
+        practice_question_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1',
+        student_id: '00000000-0000-0000-0000-000000000101',
+        student_answer: '18 km',
+        is_correct: true,
+        feedback: 'Correct! An admissible heuristic must never overestimate true cost.',
+        attempted_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+      },
+      {
+        id: 'cccccccc-cccc-cccc-cccc-ccccccccccc2',
+        practice_question_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2',
+        student_id: '00000000-0000-0000-0000-000000000101',
+        student_answer: 'O(b^d) = 100,000 nodes',
+        is_correct: true,
+        feedback: 'Correct! BFS has exponential spatial complexity O(b^d).',
+        attempted_at: new Date(Date.now() - 2 * 86400000 + 5 * 60000).toISOString(),
+      },
+      {
+        id: 'cccccccc-cccc-cccc-cccc-ccccccccccc3',
+        practice_question_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa3',
+        student_id: '00000000-0000-0000-0000-000000000101',
+        student_answer: 'Left subtree keys < root key, and right subtree keys > root key',
+        is_correct: true,
+        feedback: 'Correct! The BST invariant guarantees binary branch elimination.',
+        attempted_at: new Date(Date.now() - 2 * 86400000 + 10 * 60000).toISOString(),
+      },
+      {
+        id: 'cccccccc-cccc-cccc-cccc-ccccccccccc4',
+        practice_question_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa4',
+        student_id: '00000000-0000-0000-0000-000000000101',
+        student_answer: 'BFS is complete on infinite graphs with finite branching; DFS can get trapped in infinite depth branches.',
+        is_correct: true,
+        feedback: 'Correct! BFS guarantees finding finite depth goals.',
+        attempted_at: new Date(Date.now() - 2 * 86400000 + 15 * 60000).toISOString(),
+      },
+      {
+        id: 'cccccccc-cccc-cccc-cccc-ccccccccccc5',
+        practice_question_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa5',
+        student_id: '00000000-0000-0000-0000-000000000101',
+        student_answer: 'Dijkstra’s Algorithm (Uniform Cost Search)',
+        is_correct: true,
+        feedback: 'Correct! Setting h(n)=0 reduces A* to Uniform Cost Search.',
+        attempted_at: new Date(Date.now() - 2 * 86400000 + 20 * 60000).toISOString(),
+      }
+    );
 
     // 12. Progress Report for Branden Harris: Diagnostic Baseline -> Progressive Assessment -> Final Mastery
     this.progress_reports.push({
@@ -785,6 +891,14 @@ Where $h^*(n)$ is the true shortest cost from node $n$ to the goal.
       learning_gain_g: 13.34,
       learning_gain_interpretation: 'Substantial Mastery Leap (High Gain)',
       motivational_message: 'Outstanding cognitive acceleration! Your progressive assessment learning gain of +13.3% shows you turned diagnostic friction in Analysis and Creativity into major mastery breakthroughs!',
+      practice_quiz_performance: {
+        total_assigned: 5,
+        total_attempted: 5,
+        total_correct: 5,
+        accuracy_percentage: 100.0,
+        placement_readiness_level: 'Placement Ready (Distinction)',
+        placement_readiness_summary: 'Exceptional placement readiness across technical MCQs (5/5 correct, 100%). Demonstrates robust aptitude in algorithmic memory trade-offs, state-space bounds, and heuristic invariants.',
+      },
       trait_improvements: {
         remembering: 0.0,
         understanding: 0.0,

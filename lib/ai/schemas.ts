@@ -242,7 +242,7 @@ export const InterventionPackageSchema = z.object({
   analogies: z.array(AnalogySchema).min(1),
   revision_checklist: z.array(z.string()).min(2),
   recommended_next_steps: z.array(z.string()).min(2),
-  practice_questions: z.array(PracticeQuestionSchema).min(2),
+  practice_questions: z.array(PracticeQuestionSchema).min(5),
 });
 
 export type QuestionPackageZod = z.infer<typeof QuestionPackageSchema>;

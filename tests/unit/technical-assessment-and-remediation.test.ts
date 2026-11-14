@@ -357,5 +357,44 @@ Breadth-First Search: Explores shallowest nodes using a FIFO queue with exponent
       expect(typeof detail.progressive_delta).toBe('number');
     }
   });
+
+  it('guarantees at least 5 placement-grade practice quiz questions and evaluates placement preparedness in reports', () => {
+    const studentId = '00000000-0000-0000-0000-000000000101';
+    const courseId = '11111111-1111-1111-1111-111111111111';
+
+    // 1. Check interventions have at least 5 practice questions
+    const interventions = db.getInterventions({ studentId, courseId });
+    expect(interventions.length).toBeGreaterThan(0);
+    const inv = interventions[0];
+    expect(inv.practice_questions).toBeDefined();
+    expect(inv.practice_questions!.length).toBeGreaterThanOrEqual(5);
+
+    // Verify placement caliber of practice questions (options, answers, explanations)
+    for (const pq of inv.practice_questions!) {
+      expect(pq.question_text.length).toBeGreaterThan(15);
+      expect(pq.options?.length).toBe(4);
+      expect(pq.correct_answer).toBeDefined();
+      expect(pq.explanation.length).toBeGreaterThan(15);
+      expect(pq.trait).toBeDefined();
+      // Must not be an administrative question
+      expect(isAdministrativeQuestion(pq.question_text)).toBe(false);
+    }
+
+    // 2. Check placement performance calculation
+    const placementPerf = db.calculatePracticePlacementPerformance(studentId, courseId);
+    expect(placementPerf).toBeDefined();
+    expect(placementPerf.total_assigned).toBeGreaterThanOrEqual(5);
+    expect(placementPerf.total_attempted).toBeGreaterThanOrEqual(5);
+    expect(placementPerf.accuracy_percentage).toBe(100);
+    expect(placementPerf.placement_readiness_level).toBe('Placement Ready (Distinction)');
+    expect(placementPerf.placement_readiness_summary).toContain('placement');
+
+    // 3. Progress report carries practice quiz performance
+    const report = db.getProgressReport(studentId, courseId);
+    expect(report?.practice_quiz_performance).toBeDefined();
+    expect(report!.practice_quiz_performance!.total_assigned).toBeGreaterThanOrEqual(5);
+    expect(report!.practice_quiz_performance!.accuracy_percentage).toBe(100);
+    expect(report!.practice_quiz_performance!.placement_readiness_level).toBe('Placement Ready (Distinction)');
+  });
 });
 

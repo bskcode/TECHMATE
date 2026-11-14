@@ -224,6 +224,87 @@ export default function FacultyReportsPage() {
             </div>
           </Card>
 
+          {/* Placement Preparedness & Practice Quiz Performance Widget */}
+          {report.practice_quiz_performance && (
+            <Card className="rounded-3xl border-none shadow-sm bg-white p-6 sm:p-7 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-gray-100 gap-3">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold">
+                    <Award className="w-5 h-5 text-[#3E2D68]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">
+                      Placement Practice Quiz &amp; Technical Preparedness
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Evaluates student performance on placement-grade technical MCQ challenges (minimum 5 questions).
+                    </p>
+                  </div>
+                </div>
+
+                <Badge
+                  variant="secondary"
+                  className={`text-xs font-bold px-3 py-1 ${
+                    report.practice_quiz_performance.placement_readiness_level === 'Placement Ready (Distinction)'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : report.practice_quiz_performance.placement_readiness_level === 'Placement Competitive'
+                      ? 'bg-indigo-100 text-indigo-800'
+                      : 'bg-amber-100 text-amber-800'
+                  }`}
+                >
+                  {report.practice_quiz_performance.placement_readiness_level}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1">
+                <div className="bg-[#F8F9FD] rounded-2xl p-4 border border-gray-100 text-center">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Placement Accuracy</p>
+                  <p className="text-2xl font-black text-gray-900 mt-1">
+                    {report.practice_quiz_performance.accuracy_percentage}%
+                  </p>
+                  <span className="text-[10px] text-gray-500">
+                    {report.practice_quiz_performance.total_correct} / {report.practice_quiz_performance.total_attempted} correct
+                  </span>
+                </div>
+
+                <div className="bg-[#F8F9FD] rounded-2xl p-4 border border-gray-100 text-center">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Questions Assigned</p>
+                  <p className="text-2xl font-black text-[#3E2D68] mt-1">
+                    {report.practice_quiz_performance.total_assigned}
+                  </p>
+                  <span className="text-[10px] text-gray-500">Targeted placement MCQs</span>
+                </div>
+
+                <div className="bg-[#F8F9FD] rounded-2xl p-4 border border-gray-100 text-center">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Attempted by Student</p>
+                  <p className="text-2xl font-black text-emerald-600 mt-1">
+                    {report.practice_quiz_performance.total_attempted}
+                  </p>
+                  <span className="text-[10px] text-gray-500">
+                    {report.practice_quiz_performance.total_assigned > 0
+                      ? `${Math.round((report.practice_quiz_performance.total_attempted / report.practice_quiz_performance.total_assigned) * 100)}% completion`
+                      : '0% completion'}
+                  </span>
+                </div>
+
+                <div className="bg-[#F8F9FD] rounded-2xl p-4 border border-gray-100 text-center flex flex-col justify-center">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Placement Status</p>
+                  <p className="text-sm font-black text-indigo-900 mt-1">
+                    {report.practice_quiz_performance.accuracy_percentage >= 80 ? 'Corporate Caliber' : 'Technical Review'}
+                  </p>
+                  <span className="text-[10px] text-gray-500">Campus interview grade</span>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-indigo-50/60 border border-indigo-100/70 text-xs text-indigo-950 flex items-start space-x-2.5">
+                <span className="font-bold text-indigo-800 shrink-0">Placement Assessment Note:</span>
+                <p className="text-[11px] leading-relaxed">
+                  {report.practice_quiz_performance.placement_readiness_summary}
+                </p>
+              </div>
+            </Card>
+          )}
+
           {/* Trait Growth Grouped Bar Chart + Evidence Table */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <Card className="lg:col-span-7 rounded-3xl border-none shadow-sm bg-white p-6">
